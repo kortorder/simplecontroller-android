@@ -1,0 +1,11 @@
+# Machine-local SDK and generated build files
+local.properties
+.gradle/
+.kotlin/
+.idea/
+**/build/
+__pycache__/
+.DS_Store
+# Signing identities stay private
+*.keystore
+*.jks
