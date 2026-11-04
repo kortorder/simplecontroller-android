@@ -1,0 +1,86 @@
+{
+  "kind": "gta-prep-conversion-evidence",
+  "upstreamCommit": "71a647c04dbae863be86244b291b09baf9f2c2d9",
+  "nativeSourceVersion": 20,
+  "androidProfileVersion": 11,
+  "source": {
+    "file": "GTA-6-Prep.native20-source.json",
+    "bytes": 223418,
+    "sha256": "60271f4ac6a2b622137f2a719514f3d682c7cdc273a284d1ffda4278ab34e1e9"
+  },
+  "output": {
+    "file": "GTA-6-Prep.simplecontroller-profile.json",
+    "bytes": 67534,
+    "sha256": "3a79654e41a7cdbbf21797fa1cdaaee4301bbdf0acb552d54f101df54e38a439"
+  },
+  "counts": {
+    "pages": 4,
+    "controls": 50,
+    "ordinaryCircles": 43,
+    "circularButtonMarkers": 41,
+    "nativeRecenterCircles": 2,
+    "buttonAimDragSurfaces": 5,
+    "sticks": 2,
+    "floatingRings": 1
+  },
+  "verification": {
+    "pythonConversionTests": {
+      "passed": 9
+    },
+    "androidDecoderTests": {
+      "passedPerFlavor": 2,
+      "flavors": [
+        "communityDebug",
+        "sideloadDebug"
+      ],
+      "status": "Passed in each final 508-test JVM run."
+    },
+    "androidPhysicalDevice": "not tested",
+    "picoXacXbox": "not tested",
+    "jvmTests": {
+      "passedPerFlavor": 508,
+      "suitesPerFlavor": 60,
+      "flavors": [
+        "communityDebug",
+        "sideloadDebug"
+      ],
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "emulatorTests": {
+      "passedPerFlavor": 40,
+      "flavors": [
+        "communityDebug",
+        "sideloadDebug"
+      ],
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "safeControlAreaTests": {
+      "purePerFlavor": 8,
+      "androidPerFlavor": 5,
+      "status": "passed"
+    },
+    "communityLint": {
+      "errors": 0,
+      "warnings": 218
+    },
+    "playReleaseBundle": "compiled; no publication or production-signing claim",
+    "manualVisualReview": "ongoing; see app verification record for final readiness",
+    "retainedStickEmulatorTests": {
+      "passedPerFlavor": 9,
+      "status": "passed"
+    }
+  },
+  "adaptations": [
+    "Normalized iPhone centers become Android reference-pixel rectangle origins.",
+    "safeControlArea=true fits saved reference geometry into a measured plane below app tools/readout and inside system bars; original profiles default false. Landscape readout reserves three lines, portrait six, without changing height during output or Edit mode.",
+    "Android orientation fitting and screen density determine actual pixel and physical sizes; ring distances remain DP.",
+    "Global Hold and Turbo are Android app settings; set them OFF for starter behavior. Swipe OFF is explicitly saved in this format11 profile.",
+    "Repeat, circularButton, persisted swipe mode and safeControlArea require fork format11; original format10 must reject instead of ignoring them.",
+    "No sensor calibration or network credentials are converted."
+  ],
+  "authorization": "User explicitly states ownership of original Android code or permission to distribute modifications; existing notices retained, no new license terms asserted."
+}

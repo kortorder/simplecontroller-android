@@ -1,0 +1,46 @@
+GTA 6 Prep — Android community preview
+
+Requires this fork's Android profile format11. Do not import the native20
+source JSON or lower the version to use an older Android build.
+
+The profile passes the actual Android decoder and round-trip checks in both
+debug flavors. The app passes 508 JVM and 40 emulator tests in each flavor,
+plus nine independent conversion checks. Final manual visual review is ongoing;
+physical Android and receiver/XAC acceptance remain unverified.
+
+The accepted iPhone layout has been converted to Android's import structure:
+Walk / Aim / Drive / Extras, 50 controls and one floating ring. There are 43
+small circles (41 marked Buttons and two Re-center controls), two sticks and
+five rectangular drag pads. Both orientation placements and all names remain.
+
+Export your existing Android profiles first. Use Import controller profile
+and select GTA-6-Prep.simplecontroller-profile.json once. Keep global Hold,
+Turbo OFF for the intended starter behavior; Android stores these globally,
+outside this profile. Swipe OFF is explicitly saved in this format11 profile. Practice displays local output without sending it. Use the accompanying
+verification record for the precise emulator and physical-device test status.
+
+Move stays after lift. Above 95% forward, its A action repeats every 200 ms
+(50 ms pressed / 150 ms released). Ease back or use Center sticks to stop the
+repeat; Stop all clears everything. Run A remains an independent long-hold
+toggle: unlatch it before expecting the repeating A release gaps.
+
+On Walk, touch Aim + fire and drag to aim with the right stick. It requests
+LT 0.5 and RT 0.7 while touched; lifting should release both and center aim.
+The Aim page still has the retained movement/aim/fire ring, Stop fire,
+Release aim and Center sticks. The four driving pads combine their stated
+trigger pressure with left-stick steering. No finger-pressure calibration
+is used by this profile.
+
+Important adaptation: native iPhone points become Android reference pixels,
+then Android fits the two saved canvases into this profile’s opted-in safe
+control area below the tools and readout, inside system bars. Tools scroll
+sideways; Release all stays separate. Edit/Play and output updates do not
+move the control plane. Existing profiles retain their old full-canvas layout.
+Ring radii use Android DP. Actual
+target size, ring placement and drag travel depend on screen size/density.
+No Android phone has been tested yet. Adjust only after checking the actual
+device; numerical geometry preservation is not physical-size equivalence.
+
+This is GTA 6 preparation, not a verified game mapping. Requested pressure
+percentages are not measured voltage, throttle or Xbox acceptance. The
+physical receiver/XAC/trigger circuit must pass its separate tests.
