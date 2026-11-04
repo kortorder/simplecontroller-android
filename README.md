@@ -12,13 +12,13 @@ Download the APK on **Android 7 or newer**, open it and follow the phone’s ins
 
 The bridge, camera, and controller tools are now visible on the play screen. **Bridge menu** opens connection options, **Camera Follow** shows its current state, and **All controls** opens the full-height list, including the camera strength, profiles and pages. Practice keeps inputs on the phone. The Pico bridge does not generate Camera Follow movement; the existing Windows connection supports its own camera behavior.
 
-To try the [GTA 6 Prep sample](profiles/GTA-6-Prep.simplecontroller-profile.json), download the file on your phone, use **Import controller profile**, and keep your existing profiles when importing. It includes lower-left sticks, a repeat at full forward and a direct Aim + fire pad. The sample game bindings are provisional. [Profile notes](profiles/GTA-6-Prep-Android.txt)
+To try the [GTA 6 Prep sample](https://github.com/kortorder/simplecontroller-android/releases/download/v0.17.2-preview2/GTA-6-Prep.simplecontroller-profile.json), download the file on your phone, use **Import controller profile**, and keep your existing profiles when importing. It includes lower-left sticks, a repeat at full forward and a direct Aim + fire pad. The sample game bindings are provisional. The source ZIP contains the profile guide in `profiles/GTA-6-Prep-Android.txt`.
 
 ## Build from source
 
-**[Download the complete source ZIP](https://github.com/kortorder/simplecontroller-android/raw/refs/heads/main/SimpleController-Android-source-0.17.2-preview2.zip)** · [Source checksum](https://github.com/kortorder/simplecontroller-android/blob/main/SHA256SUMS.txt)
+**[Download the complete source ZIP](https://github.com/kortorder/simplecontroller-android/releases/download/v0.17.2-preview2/SimpleController-Android-source-0.17.2-preview2.zip)** · [Source checksum](https://github.com/kortorder/simplecontroller-android/releases/download/v0.17.2-preview2/SHA256SUMS.txt)
 
-Open the extracted project in Android Studio or use JDK 21, Android SDK Platform 36 and Build Tools 35.0.0. From the repository root, run:
+Download and extract **SimpleController-Android-source-0.17.2-preview2.zip**. If you cloned this repository, you can extract the archive of that name from the checkout. Open the extracted `simplecontroller-android` folder in Android Studio, or build with JDK 21, Android SDK Platform 36 and Build Tools 35.0.0. From that folder, run the following command.
 
 ```sh
 bash gradlew testCommunityDebugUnitTest assembleCommunityDebug lintCommunityDebug
@@ -26,7 +26,9 @@ bash gradlew testCommunityDebugUnitTest assembleCommunityDebug lintCommunityDebu
 
 The build produces `app/build/outputs/apk/community/debug/app-community-debug.apk`. Local builds use your own debug signing key. Use the signed APK from the release to update an installation of the community preview.
 
-The Gradle wrapper, original Windows receiver Python sources, tests, and profile tools are included. [Dependency notices](docs/THIRD_PARTY_NOTICES.txt) · [Previous community preview](https://github.com/kortorder/simplecontroller-android/releases/tag/v0.17.0-preview1)
+The Gradle wrapper, original Windows receiver Python sources, tests, and profile tools are included. Read `docs/THIRD_PARTY_NOTICES.txt` in the extracted project for dependency notices. [Previous community preview](https://github.com/kortorder/simplecontroller-android/releases/tag/v0.17.0-preview1)
+
+For a complete Git checkout, [download the portable Git bundle](https://github.com/kortorder/simplecontroller-android/raw/refs/heads/main/SimpleController-Android-0.17.2-preview2.bundle). In the folder where you downloaded it, run `git clone -b source-import SimpleController-Android-0.17.2-preview2.bundle simplecontroller-android-source`. That checkout already contains the full project.
 
 ## Pico projects
 
