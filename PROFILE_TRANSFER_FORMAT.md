@@ -10,7 +10,14 @@ The API 36 release must keep an importer that accepts all of the following:
 
 - transfer files with `fileType: "simplecontroller-profile"` and `transferVersion: 1`;
 - all-profile backups with `fileType: "simplecontroller-profiles-backup"` and `backupVersion: 1`;
+- nested format `15` when an action payload stores a per-command `(Rmilliseconds)`
+  repeat modifier, including inactive selections;
+- nested format `14` when action payloads store timing modifiers or TouchAim stores
+  per-stage sensitivity/confirmation tuning, including inactive settings;
 - nested `ControllerProfile` format version `10` for floating zones/groups/rings and stored scoped/suppression options, including disabled settings;
+- nested format `11` when a floating zone stores closer Aim/Movement boost spacing, swipe-resistant Finish or Boost-entry fire timing;
+- nested format `12` when a ring stores role boost banks/custom geometry, even disabled, or immediate direct-Boost aiming;
+- nested format `13` when a Boost 2 stores the direct-touch delay bypass, including disabled settings;
 - nested `ControllerProfile` format version `9` for optional Button Aim boundary cancellation/re-arming;
 - nested `ControllerProfile` format version `8` for Camera Follow exclusion or nondefault strength;
 - nested `ControllerProfile` format version `7` for Button Aim Game Mouse;
@@ -89,8 +96,14 @@ transport settings, theme, the current-profile preference, and other app/device 
 
 - Transfer version: `1`
 - Maximum backup version: `3`; writers use `3` when the full-ring preset library is present, `2` for boost profiles without full-ring presets, otherwise `1`. Historical backups 1 and 2 remain readable. Nonempty boost libraries require at least version 2; nonempty full-ring preset libraries require version 3. Future envelope and nested preset versions are rejected before decoding.
-- Maximum nested controller-profile format: `10` (formats `2` through `9` remain importable)
-- Writers use `10` when floating/scoped configuration is stored, even disabled; otherwise
+- Maximum nested controller-profile format: `16` (formats `2` through `15` remain importable)
+- Writers use `16` only when a D activation-delay modifier is stored, including
+  `(D0)`. R-only profiles retain format 15 and earlier conditional rules remain.
+- Writers use `15` when an R repeat modifier is stored without D. Existing modifier
+  and stage-tuning profiles keep the format-14 rules below.
+- Writers use `14` for stored payload modifiers or nondefault per-stage TouchAim
+  tuning; otherwise the existing conditional formats below remain unchanged.
+- Writers use `13` if a root or stored role-bank Boost 2 has `skipDelayOnDirectTouch: true`, even when disabled; otherwise `12` if a ring stores nonnull `boostBanks` (including disabled actions/geometry) or `directBoostStartsAim: true`; otherwise `11` if any floating zone stores `finishIgnoresSwipes`, `compactAimBoosts`, `adjacentMovementBoosts`, or an aim knob's `returnFire.startOnBoostEntry` as true, even inside disabled configuration; otherwise `10` when floating/scoped configuration is stored, even disabled; otherwise
   `9` when a Button stores either boundary cancellation/re-arming option as true;
   otherwise `8` when any control excludes its movement from Camera Follow or stores strength
   other than 100%; otherwise `7` when a Button has Game Mouse selected for Base or Alternate;
@@ -120,8 +133,32 @@ The `sideloadDebug` build retains target API 34 and application ID
 `com.example.simplecontroller`. The separate `playRelease` build targets API 36 and uses
 `io.github.colonelwheel.simplecontroller`. Both builds must retain this contract and golden fixture.
 
+Payload modifiers require reusable manual TouchAim/calibration schema 2,
+Button Aim schema 6, Directional/Stick+ schema 3, named floating boost schema 4,
+and complete ring preset schema 5 as applicable. Manual TouchAim schema 2 also
+stores independent Aim-only/Low/Medium/High sensitivities and stage confirmation
+times. Writers select those versions only when needed; historical schemas remain
+readable. Missing stage sensitivity overrides inherit the original sensitivity;
+missing confirmation times are zero. Unsupported or under-versioned nested
+features are rejected before application. See `PAYLOAD_MODIFIERS_AND_STAGE_TUNING.md`.
+
+An R repeat modifier conditionally requires manual TouchAim/calibration schema 3,
+Button Aim schema 7, Directional/Stick+ schema 4, named floating boost schema 5,
+or complete ring preset schema 6, as applicable. Libraries without R retain their
+previous conditional schema selection. Both full profiles and library/backup
+readers reject under-versioned R syntax before typed decoding or application.
+
+A D activation-delay modifier conditionally requires manual TouchAim/calibration
+schema 4, Button Aim schema 8, Directional/Stick+ schema 5, named floating boost
+schema 6, or complete ring preset schema 7, as applicable. D and R can coexist;
+the required version is the newest stored feature's version. Libraries without
+D keep their earlier conditional schemas. Raw preflight includes malformed D
+attempts and inactive settings, before typed decoding or any application writes.
+
 ## Floating configuration and library contract
 
 Floating geometry and references are detached saved configuration. Runtime placement, visibility, pointer/timer/armed state, ownership and suppression are excluded. Copies remap related IDs and both orientation/restoration maps; whole-profile transfer preserves isolated IDs.
 
-Named boost profiles use schema 1 with frozen snapshots. Boost-only application preserves target layers, geometry, movement and normal/fine tuning. Explicit ring aiming/actions application validates knob-slot mapping atomically. Envelope and nested library versions are checked before decoding or internal writes. All-profile staging, verification, additive restore and rollback include the library.
+Named boost profiles use schema 3 when their Boost 2 stores the direct-touch delay bypass, schema 2 when their optional ring aiming/actions snapshot stores Boost-entry fire timing, and schema 1 otherwise. Complete ring presets use schema 4 for the direct-touch delay bypass, schema 3 for stored role banks/custom geometry or immediate direct aiming, schema 2 for the earlier closer-spacing/Finish/fire-timing options, and schema 1 otherwise. Older schemas remain readable; under-versioned new options and unsupported nested schemas are rejected before typed decoding or internal writes. Boost-only application explicitly targets one bank, preserving its enable choices and custom geometry, the other bank, target layers, Finish policy, movement and normal/fine/firing tuning. A full-ring preset preserves both banks, including inactive settings. Explicit ring aiming/actions application includes fire timing and validates knob-slot mapping atomically. Transfer/backup envelopes are unchanged. All-profile staging, verification, additive restore and rollback include the libraries.
+
+The community app also reads and writes its safe controller area, swipe settings, circular buttons, and full-forward Stick+ repeat interval in format 11. Profiles with a higher-version feature use the highest required format.

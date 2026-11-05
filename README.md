@@ -1,35 +1,39 @@
 # Simple Controller for Android
 
-Simple Controller is a customizable controller built for playing with one finger. Make your own layouts with buttons, sticks, touchpads and pages, or start with the included GTA 6 Prep layout. Try controls in Practice before connecting a receiver.
+Simple Controller lets you play with one finger. Pick a starter for the kind of game you play, then move or reassign its buttons, sticks and touchpads to fit your reach. You can try every layout in Practice on your phone before connecting a receiver.
 
 ## Install the Android community preview
 
-**[Download the signed Android APK](https://github.com/kortorder/simplecontroller-android/releases/download/v0.17.2-preview2/SimpleController-Android-0.17.2-preview2.apk)** · [Release notes and checksums](https://github.com/kortorder/simplecontroller-android/releases/tag/v0.17.2-preview2)
+**[Download the signed Android APK, 0.19.0-preview4](https://github.com/kortorder/simplecontroller-android/releases/download/v0.19.0-preview4/SimpleController-Android-0.19.0-preview4.apk)** · [Release notes](https://github.com/kortorder/simplecontroller-android/releases/tag/v0.19.0-preview4) · [SHA-256 checksums](https://github.com/kortorder/simplecontroller-android/releases/download/v0.19.0-preview4/SHA256SUMS.txt)
 
-Download the APK on **Android 7 or newer**, open it and follow the phone’s installer prompts. If prompted, allow the app you used to open this APK to install it. Version **0.17.2-preview2 (24)** uses the same community application ID as preview 1. Install it over that preview to keep its saved data. The community preview also installs alongside the original app, which has its own application ID and profiles.
+Open the APK on a phone running **Android 7 or newer** and follow the installer prompts. If Android asks, allow the browser or file manager you used to open the download to install it. To keep your saved profiles, install build 26 over your existing community preview. It can also be installed alongside the original Android app.
 
-## Find your controls
+## Choose a game starter
 
-The bridge, camera, and controller tools are now visible on the play screen. **Bridge menu** opens connection options, **Camera Follow** shows its current state, and **All controls** opens the full-height list, including the camera strength, profiles and pages. Practice keeps inputs on the phone. The Pico bridge does not generate Camera Follow movement; the existing Windows connection supports its own camera behavior.
+On first launch, tap **Shooter**, **Racing**, **Sports** or **Open World** to open your own editable copy. **Use standard controller** opens the original setup. To add another starter later, open **All controls → Profiles → Game starters**. Choosing Racing again creates *Racing 2* and preserves the first copy.
 
-To try the [GTA 6 Prep sample](https://github.com/kortorder/simplecontroller-android/releases/download/v0.17.2-preview2/GTA-6-Prep.simplecontroller-profile.json), download the file on your phone, use **Import controller profile**, and keep your existing profiles when importing. It includes lower-left sticks, a repeat at full forward and a direct Aim + fire pad. The sample game bindings are provisional. The source ZIP contains the profile guide in `profiles/GTA-6-Prep-Android.txt`.
+Every starter has a **Menus** page with a D-pad and menu buttons. In Open World, switch between **On foot** and **Drive**. Tap **Return to play** from Menus to return to the page you came from. The action names follow common Xbox mappings. Use Edit to match your game's control scheme.
+
+This release also includes per-action delays and repeats, TouchAim stage sensitivity and entry confirmation, and floating-ring boost and fine-aim options. In the source project, the guides are `PAYLOAD_MODIFIERS_AND_STAGE_TUNING.md` and `FLOATING_RING_OPTIONS_PLAIN_ENGLISH.txt`. The optional GTA 6 Prep sample and its import guide are in `profiles/`.
+
+## Connect a receiver
+
+**Bridge menu** opens connection options. The [Wi-Fi Pico bridge](https://github.com/kortorder/simplecontroller-pico-wifi-bridge) connects the phone to an Xbox Adaptive Controller. The [Omni2 chair joystick bridge](https://github.com/kortorder/omni2-pico-xbox-joystick) is a separate project for using a chair joystick as a right stick. The Windows receiver's Python sources are included with the Android project.
+
+The community build passed 775 unit tests and 44 emulator tests. The emulator checks covered starter selection, saving separate copies, and navigating between game and menu pages. Physical Android and Xbox gameplay tests are pending.
 
 ## Build from source
 
-**[Download the complete source ZIP](https://github.com/kortorder/simplecontroller-android/releases/download/v0.17.2-preview2/SimpleController-Android-source-0.17.2-preview2.zip)** · [Source checksum](https://github.com/kortorder/simplecontroller-android/releases/download/v0.17.2-preview2/SHA256SUMS.txt)
+[Download the complete Android Studio project](https://github.com/kortorder/simplecontroller-android/releases/download/v0.19.0-preview4/SimpleController-Android-source-0.19.0-preview4.zip) and open the extracted `simplecontroller-android` folder. To work with the editable Git history, [download the Git bundle](https://github.com/kortorder/simplecontroller-android/releases/download/v0.19.0-preview4/SimpleController-Android-0.19.0-preview4.bundle) and clone it locally.
 
-Download and extract **SimpleController-Android-source-0.17.2-preview2.zip**. If you cloned this repository, you can extract the archive of that name from the checkout. Open the extracted `simplecontroller-android` folder in Android Studio, or build with JDK 21, Android SDK Platform 36 and Build Tools 35.0.0. From that folder, run the following command.
+```sh
+git clone -b source-import SimpleController-Android-0.19.0-preview4.bundle simplecontroller-android
+```
+
+From the project folder, use JDK 21, Android SDK Platform 36 and Build Tools 35.0.0 to run the tests and build the community APK.
 
 ```sh
 bash gradlew testCommunityDebugUnitTest assembleCommunityDebug lintCommunityDebug
 ```
 
-The build produces `app/build/outputs/apk/community/debug/app-community-debug.apk`. Local builds use your own debug signing key. Use the signed APK from the release to update an installation of the community preview.
-
-The Gradle wrapper, original Windows receiver Python sources, tests, and profile tools are included. Read `docs/THIRD_PARTY_NOTICES.txt` in the extracted project for dependency notices. [Previous community preview](https://github.com/kortorder/simplecontroller-android/releases/tag/v0.17.0-preview1)
-
-For a complete Git checkout, [download the portable Git bundle](https://github.com/kortorder/simplecontroller-android/raw/refs/heads/main/SimpleController-Android-0.17.2-preview2.bundle). In the folder where you downloaded it, run `git clone -b source-import SimpleController-Android-0.17.2-preview2.bundle simplecontroller-android-source`. That checkout already contains the full project.
-
-## Pico projects
-
-The [Wi-Fi Pico bridge](https://github.com/kortorder/simplecontroller-pico-wifi-bridge) connects the app to an Xbox Adaptive Controller. A separate [Omni2 chair joystick bridge](https://github.com/kortorder/omni2-pico-xbox-joystick) turns a chair joystick into the right stick. Console acceptance and adjustable trigger hardware testing are pending. Android behavioral checks use an emulator; physical Android testing is pending.
+The debug APK is written to `app/build/outputs/apk/community/debug/app-community-debug.apk`. Local builds use your own debug signing key. Use the signed release APK to update an installed community preview. Dependency notices are in `docs/THIRD_PARTY_NOTICES.txt`.
