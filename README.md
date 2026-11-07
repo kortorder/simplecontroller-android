@@ -4,9 +4,13 @@ Simple Controller lets you play with one finger. Pick a starter for the kind of 
 
 ## Install the Android community preview
 
-**[Download the signed Android APK, 0.19.0-preview4](https://github.com/kortorder/simplecontroller-android/releases/download/v0.19.0-preview4/SimpleController-Android-0.19.0-preview4.apk)** · [Release notes](https://github.com/kortorder/simplecontroller-android/releases/tag/v0.19.0-preview4) · [SHA-256 checksums](https://github.com/kortorder/simplecontroller-android/releases/download/v0.19.0-preview4/SHA256SUMS.txt)
+**[Download the signed Android APK, 0.20.0-preview5](https://github.com/kortorder/simplecontroller-android/releases/download/v0.20.0-preview5/SimpleController-Android-0.20.0-preview5.apk)** · [Release notes](https://github.com/kortorder/simplecontroller-android/releases/tag/v0.20.0-preview5) · [SHA-256 checksums](https://github.com/kortorder/simplecontroller-android/releases/download/v0.20.0-preview5/SHA256SUMS.txt)
 
-Open the APK on a phone running **Android 7 or newer** and follow the installer prompts. If Android asks, allow the browser or file manager you used to open the download to install it. To keep your saved profiles, install build 26 over your existing community preview. It can also be installed alongside the original Android app.
+Open the APK on a phone running **Android 7 or newer** and follow the installer prompts. If Android asks, allow the browser or file manager you used to open the download to install it. To keep your saved profiles, install build 27 over your existing community preview. It can also be installed alongside the original Android app.
+
+## Macro Mode and automatic release
+
+In **Button settings → Behavior**, turn on **Macro Mode** to complete a sequence with one tap. Each action defaults to **200 ms**. Use `(U100)` for a 100 ms press, or combine it with a delay such as `X360A(D500)(U100)`. Delays count from the initial tap. Extra taps while a sequence runs are ignored, and **Release all** cancels it. The [macro guide](MACRO_MODE_AND_PAYLOAD_PORTING.md) explains timing and examples.
 
 ## Choose a game starter
 
@@ -20,14 +24,14 @@ This release also includes per-action delays and repeats, TouchAim stage sensiti
 
 **Bridge menu** opens connection options. The [Wi-Fi Pico bridge](https://github.com/kortorder/simplecontroller-pico-wifi-bridge) connects the phone to an Xbox Adaptive Controller. The [Omni2 chair joystick bridge](https://github.com/kortorder/omni2-pico-xbox-joystick) is a separate project for using a chair joystick as a right stick. The Windows receiver's Python sources are included with the Android project.
 
-The community build passed 775 unit tests and 44 emulator tests. The emulator checks covered starter selection, saving separate copies, and navigating between game and menu pages. Physical Android and Xbox gameplay tests are pending.
+This release includes automated timing and upgrade checks. Physical Android and Xbox gameplay tests are pending.
 
 ## Build from source
 
-[Download the complete Android Studio project](https://github.com/kortorder/simplecontroller-android/releases/download/v0.19.0-preview4/SimpleController-Android-source-0.19.0-preview4.zip) and open the extracted `simplecontroller-android` folder. To work with the editable Git history, [download the Git bundle](https://github.com/kortorder/simplecontroller-android/releases/download/v0.19.0-preview4/SimpleController-Android-0.19.0-preview4.bundle) and clone it locally.
+[Download the complete Android Studio project](https://github.com/kortorder/simplecontroller-android/releases/download/v0.20.0-preview5/SimpleController-Android-source-0.20.0-preview5.zip) and open the extracted `simplecontroller-android` folder. To work with the editable Git history, [download the Git bundle](https://github.com/kortorder/simplecontroller-android/releases/download/v0.20.0-preview5/SimpleController-Android-0.20.0-preview5.bundle) and clone it locally.
 
 ```sh
-git clone -b source-import SimpleController-Android-0.19.0-preview4.bundle simplecontroller-android
+git clone -b source-import SimpleController-Android-0.20.0-preview5.bundle simplecontroller-android
 ```
 
 From the project folder, use JDK 21, Android SDK Platform 36 and Build Tools 35.0.0 to run the tests and build the community APK.

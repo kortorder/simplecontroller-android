@@ -1,3 +1,3 @@
-c71d49d7bdcce12c6dbb09adf8fbd9aa953be3c3768dc65eb9bbdd16bdc73d26  SimpleController-Android-0.19.0-preview4.apk
-d099f924fd4c41931181388c59c463234da25a5ce1728eb388bab1a4011b5195  SimpleController-Android-source-0.19.0-preview4.zip
-2b7380ce9be2d35522a1242be3837897ff3516dd537b772d65a932a32bba07a9  SimpleController-Android-0.19.0-preview4.bundle
+3057cf9123d0bd617e42537404094f90bcd0425e05a622d259d43486846d1f9e  SimpleController-Android-0.20.0-preview5.apk
+3d2ccc9760aa5763359a0e05f51b87bddb1c4f006fbb6affdfbd2723622d9ad8  SimpleController-Android-0.20.0-preview5.bundle
+61c64949fa85c272f98873888d399430ad44968651720f3e96781d7cd17fd49f  SimpleController-Android-source-0.20.0-preview5.zip
