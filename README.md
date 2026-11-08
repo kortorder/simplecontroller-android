@@ -4,9 +4,15 @@ Simple Controller lets you play with one finger. Pick a starter for the kind of 
 
 ## Install the Android community preview
 
-**[Download the signed Android APK, 0.20.0-preview5](https://github.com/kortorder/simplecontroller-android/releases/download/v0.20.0-preview5/SimpleController-Android-0.20.0-preview5.apk)** · [Release notes](https://github.com/kortorder/simplecontroller-android/releases/tag/v0.20.0-preview5) · [SHA-256 checksums](https://github.com/kortorder/simplecontroller-android/releases/download/v0.20.0-preview5/SHA256SUMS.txt)
+**[Download the signed Android APK, 0.21.0-preview6](https://github.com/kortorder/simplecontroller-android/releases/download/v0.21.0-preview6/SimpleController-Android-0.21.0-preview6.apk)** · [Release notes](https://github.com/kortorder/simplecontroller-android/releases/tag/v0.21.0-preview6) · [SHA-256 checksums](https://github.com/kortorder/simplecontroller-android/releases/download/v0.21.0-preview6/SHA256SUMS.txt)
 
-Open the APK on a phone running **Android 7 or newer** and follow the installer prompts. If Android asks, allow the browser or file manager you used to open the download to install it. To keep your saved profiles, install build 27 over your existing community preview. It can also be installed alongside the original Android app.
+Open the APK on a phone running **Android 7 or newer** and follow the installer prompts. If Android asks, allow the browser or file manager you used to open the download to install it. To keep your saved profiles, install build 28 over your existing community preview. It can also be installed alongside the original Android app.
+
+## Staying connected
+
+Changing pages or profiles releases held actions and prepares a fresh, neutral bridge session automatically. Editing controls and releasing all actions do not require another tap on Connect. The app remembers the connection through short interruptions, then reconnects with all controls released when you return. Leaving the app for five minutes means you must tap **Connect** again. **Disconnect** or switching to **Practice** ends the connection immediately.
+
+Reconnection still requires a reachable bridge and the configured output capabilities. It does not restore held buttons, sticks, macros, or trigger pressure.
 
 ## Macro Mode and automatic release
 
@@ -28,10 +34,10 @@ This release includes automated timing and upgrade checks. Physical Android and 
 
 ## Build from source
 
-[Download the complete Android Studio project](https://github.com/kortorder/simplecontroller-android/releases/download/v0.20.0-preview5/SimpleController-Android-source-0.20.0-preview5.zip) and open the extracted `simplecontroller-android` folder. To work with the editable Git history, [download the Git bundle](https://github.com/kortorder/simplecontroller-android/releases/download/v0.20.0-preview5/SimpleController-Android-0.20.0-preview5.bundle) and clone it locally.
+[Download the complete Android Studio project](https://github.com/kortorder/simplecontroller-android/releases/download/v0.21.0-preview6/SimpleController-Android-source-0.21.0-preview6.zip) and open the extracted `simplecontroller-android` folder. To work with the editable Git history, [download the Git bundle](https://github.com/kortorder/simplecontroller-android/releases/download/v0.21.0-preview6/SimpleController-Android-0.21.0-preview6.bundle) and clone it locally.
 
 ```sh
-git clone -b source-import SimpleController-Android-0.20.0-preview5.bundle simplecontroller-android
+git clone -b source-import SimpleController-Android-0.21.0-preview6.bundle simplecontroller-android
 ```
 
 From the project folder, use JDK 21, Android SDK Platform 36 and Build Tools 35.0.0 to run the tests and build the community APK.
