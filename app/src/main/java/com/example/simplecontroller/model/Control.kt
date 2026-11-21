@@ -1,0 +1,295 @@
+package com.example.simplecontroller.model
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+enum class ControlType { BUTTON, STICK, CURVED_STICK, RADIAL_CURVED_STICK, TOUCHPAD, TOUCH_AIM, RECENTER }
+
+@Serializable
+enum class TouchAimOutput { MOUSE, RIGHT_STICK, LEFT_STICK }
+
+@Serializable
+enum class ButtonAimOutput { MOUSE, RIGHT_STICK, LEFT_STICK, DPAD, GAME_MOUSE }
+
+@Serializable
+enum class ButtonAimDpadMode { FOUR_WAY, EIGHT_WAY }
+
+@Serializable
+enum class ButtonAimDpadOrigin { CONTROL_CENTER, INITIAL_TOUCH }
+
+@Serializable
+enum class TouchAimMode { MANUAL_THREE_STAGE, MANUAL_TWO_STATE, CALIBRATED_TWO_STATE }
+
+@Serializable
+enum class TouchAimShootBehavior {
+    HOLD_WHILE_ABOVE,
+    PRESS_ON_ENTER,
+    PRESS_ON_RETURN_TO_AIM
+}
+
+@Serializable
+enum class TouchStageAction { PRESS, HOLD }
+
+@Serializable
+enum class ButtonAimPayloadTiming { IMMEDIATE, SEND_ON_RELEASE }
+
+@Serializable
+enum class ButtonAimStickProfile { LINEAR, RESPONSE_CURVE, RADIAL_RESPONSE_CURVE }
+
+@Serializable
+enum class ButtonAimMouseProfile { LINEAR_RELATIVE, SMOOTHED_NONLINEAR }
+
+@Serializable
+data class ButtonDirectionStages(
+    var firstDistancePx: Float = 48f,
+    var firstPayload: String = "",
+    var secondDistancePx: Float = 96f,
+    var secondPayload: String = ""
+)
+
+@Serializable
+data class ButtonDirectionalSettings(
+    var enabled: Boolean = false,
+    var up: ButtonDirectionStages = ButtonDirectionStages(),
+    var left: ButtonDirectionStages = ButtonDirectionStages(),
+    var right: ButtonDirectionStages = ButtonDirectionStages(),
+    var down: ButtonDirectionStages = ButtonDirectionStages()
+)
+
+/** Android-local page navigation. These actions are never sent to a receiver. */
+@Serializable
+enum class PageAction { NONE, GO_TO, TOGGLE, RETURN, HOME }
+
+@Serializable
+data class Control(
+    val id: String,
+    val type: ControlType,
+    var x: Float,
+    var y: Float,
+    var w: Float,
+    var h: Float,
+    var payload: String,
+
+    /* ────────── editable settings ────────── */
+    var name: String        = "",
+    var sensitivity: Float  = 1f,          // sticks / touch-pads
+    var autoCenter: Boolean = true,        // sticks / touch-pads
+    // Movement eligibility only; manual right-stick priority is always preserved.
+    var excludeFromCameraFollow: Boolean = false,
+    var cameraFollowStrengthPercent: Float = 100f,
+    /** Opt-in owned suppression; runtime claims are deliberately not serialized. */
+    var mouseSuppressCameraFollow: Boolean = false,
+    var floatingLocalAction: FloatingLocalAction = FloatingLocalAction.NONE,
+    var floatingActionTargetId: String = "",
+
+    /* button-specific */
+    var holdToggle: Boolean = false,       // "latch" behaviour
+    var holdDurationMs: Long = 500,        // long-press threshold
+    var autoTapEnabled: Boolean = false,
+    var autoTapIntervalMs: Long = 100L,
+    /** Opt-in circular button rendering; old profiles keep their existing rounded rectangle. */
+    var circularButton: Boolean = false,
+    /** A tap starts one finite payload run; only configuration is persisted. */
+    var macroModeEnabled: Boolean = false,
+    var buttonDirectional: ButtonDirectionalSettings = ButtonDirectionalSettings(),
+
+    /* Controller Pages (Android-local action; target is a stable page ID) */
+    var pageAction: PageAction = PageAction.NONE,
+    var pageTargetId: String = "",
+
+    /* Button Aim Surface (disabled by default for layout compatibility) */
+    var buttonAimEnabled: Boolean = false,
+    var buttonAimOutput: ButtonAimOutput = ButtonAimOutput.MOUSE,
+    var buttonAimPayloadTiming: ButtonAimPayloadTiming = ButtonAimPayloadTiming.IMMEDIATE,
+    var buttonAimCancelOnBoundaryExit: Boolean = false,
+    var buttonAimRearmOnBoundaryReturn: Boolean = false,
+    var buttonAimReleaseDelayMs: Long = 0,
+    var buttonAimSensitivity: Float = 1f,
+    var buttonAimInvertY: Boolean = false,
+    var buttonAimStickProfile: ButtonAimStickProfile = ButtonAimStickProfile.LINEAR,
+    var buttonAimMouseProfile: ButtonAimMouseProfile = ButtonAimMouseProfile.SMOOTHED_NONLINEAR,
+    var buttonAimStickFullDisplacementPx: Float = 220f,
+    var buttonAimStickDeadzonePx: Float = 8f,
+    var buttonAimStickUsesTouchPosition: Boolean = false,
+    var buttonAimAutoCenter: Boolean = true,
+    var buttonAimDpadMode: ButtonAimDpadMode = ButtonAimDpadMode.EIGHT_WAY,
+    var buttonAimDpadOrigin: ButtonAimDpadOrigin = ButtonAimDpadOrigin.CONTROL_CENTER,
+    var buttonAimDpadActivationDistancePx: Float = 8f,
+    var buttonAimHaptics: Boolean = true,
+
+    /* One-Shot Alternate Button Phase (disabled by default) */
+    var buttonAimOneShotAlternateEnabled: Boolean = false,
+    var buttonAimAlternatePayload: String = "",
+    var buttonAimAlternatePayloadTiming: ButtonAimPayloadTiming = ButtonAimPayloadTiming.IMMEDIATE,
+    var buttonAimAlternateResetHoldDurationMs: Long = 2000L,
+    var buttonAimAlternateBaseUnlatchDelayMs: Long = 0L,
+    var buttonAimAlternateDisplayName: String = "",
+    var buttonAimAlternateOutput: ButtonAimOutput = ButtonAimOutput.MOUSE,
+    var buttonAimAlternateSensitivity: Float = 1f,
+    var buttonAimAlternateInvertY: Boolean = false,
+    var buttonAimAlternateStickProfile: ButtonAimStickProfile = ButtonAimStickProfile.LINEAR,
+    var buttonAimAlternateMouseProfile: ButtonAimMouseProfile = ButtonAimMouseProfile.SMOOTHED_NONLINEAR,
+    var buttonAimAlternateStickFullDisplacementPx: Float = 220f,
+    var buttonAimAlternateStickDeadzonePx: Float = 8f,
+    var buttonAimAlternateStickUsesTouchPosition: Boolean = false,
+    var buttonAimAlternateAutoCenter: Boolean = true,
+    var buttonAimAlternateDpadMode: ButtonAimDpadMode = ButtonAimDpadMode.EIGHT_WAY,
+    var buttonAimAlternateDpadOrigin: ButtonAimDpadOrigin = ButtonAimDpadOrigin.CONTROL_CENTER,
+    var buttonAimAlternateDpadActivationDistancePx: Float = 8f,
+    var buttonAimAlternateHaptics: Boolean = true,
+
+    /* 2a – mouse-pad one-finger drag */
+    /**
+     * When **true** this *TOUCHPAD* control automatically sends
+     * a Left-Down on finger-down and Left-Up on finger-lift,
+     * enabling a one-finger click-drag.
+     */
+    var holdLeftWhileTouch: Boolean = false,
+
+    /* Touchpad click lock mode */
+    /**
+     * When **true**, this *TOUCHPAD* toggles the mouse left button state
+     * each time it's touched, rather than holding only while touching.
+     * This allows for clicking and then moving without holding.
+     */
+    var toggleLeftClick: Boolean = false,
+
+    /* NEW: Touchpad double-tap click-lock (Unified Remote style) */
+    /**
+     * When true, a quick double-tap locks the left mouse button down,
+     * and the next quick tap (with minimal movement) unlocks it.
+     */
+    var doubleTapClickLock: Boolean = false,
+
+    /* 2b - per-control swipe activation */
+    /**
+     * When **true** this control can be activated by swiping onto it
+     * from another control, without lifting the finger.
+     */
+    var swipeActivate: Boolean = true,
+
+    /* Directional mode for sticks */
+    var directionalMode: Boolean = false,
+    var upCommand: String = "W",
+    var downCommand: String = "S",
+    var leftCommand: String = "A",
+    var rightCommand: String = "D",
+    var boostThreshold: Float = 0.5f,
+    var upBoostCommand: String = "W,SHIFT",
+    var downBoostCommand: String = "S,CTRL",
+    var leftBoostCommand: String = "A,SHIFT",
+    var rightBoostCommand: String = "D,SHIFT",
+    var superBoostThreshold: Float = 0.75f,
+    var upSuperBoostCommand: String = "W,SHIFT,SPACE",
+    var downSuperBoostCommand: String = "S,CTRL,SPACE",
+    var leftSuperBoostCommand: String = "A,SHIFT,SPACE",
+    var rightSuperBoostCommand: String = "D,SHIFT,SPACE",
+    var extendedBoost: ExtendedBoostSettings = ExtendedBoostSettings(),
+
+    /* Stick+ mode - hybrid analog + directional */
+    var stickPlusMode: Boolean = false,
+    /** Repeats only selected Stick+ digital actions; null preserves sustained behavior. */
+    var stickPlusRepeatIntervalMilliseconds: Int? = null,
+
+    /* Analog threshold mode (for non-directional sticks) */
+    /**
+     * When **true**, the stick will send additional commands when
+     * pushed beyond the threshold value, regardless of direction.
+     */
+    var thresholdEnabled: Boolean = false,
+
+    /**
+     * Threshold value (0.0-1.0) at which point threshold actions are triggered.
+     */
+    var threshold: Float = 0.5f,
+
+    /**
+     * Comma-separated commands to send when the stick exceeds the threshold.
+     */
+    var thresholdPayload: String = "",
+
+    /**
+     * When **true**, the stick will send additional commands when
+     * pushed beyond the super threshold value, regardless of direction.
+     */
+    var superThresholdEnabled: Boolean = false,
+
+    /**
+     * Super threshold value (0.0-1.0) at which point super threshold actions are triggered.
+     */
+    var superThreshold: Float = 0.8f,
+
+    /**
+     * Comma-separated commands to send when the stick exceeds the super threshold.
+     */
+    var superThresholdPayload: String = "",
+
+    /* Touch Aim: continuous aim plus cumulative contact stages */
+    var touchAimOutput: TouchAimOutput = TouchAimOutput.MOUSE,
+    /** Opt-in PC relative mouse events; legacy controls keep cursor-position movement. */
+    var touchAimGameMouse: Boolean = false,
+    var touchUseSize: Boolean = true,
+    var touchUseMajor: Boolean = true,
+    var touchUseMinor: Boolean = true,
+    var touchSizeScale: Float = 100f,
+    var touchScoreSmoothing: Float = 0.35f,
+    var touchLowThreshold: Float = 2.0f,
+    var touchMediumThreshold: Float = 4.0f,
+    var touchHighThreshold: Float = 5.2f,
+    var touchHysteresis: Float = 0.25f,
+    var touchLowPayload: String = "",
+    var touchMediumPayload: String = "LT:1.0",
+    var touchHighPayload: String = "RT:1.0",
+    var touchLowAction: TouchStageAction = TouchStageAction.PRESS,
+    var touchMediumAction: TouchStageAction = TouchStageAction.HOLD,
+    var touchHighAction: TouchStageAction = TouchStageAction.HOLD,
+    var touchKeepLowerHolds: Boolean = true,
+    /** Null inherits the original shared sensitivity, preserving existing layouts. */
+    var touchAimAimOnlySensitivity: Float? = null,
+    var touchLowSensitivity: Float? = null,
+    var touchMediumSensitivity: Float? = null,
+    var touchHighSensitivity: Float? = null,
+    /** Zero enters immediately; timers are runtime state and are never persisted. */
+    var touchAimAimOnlyEnterConfirmationMs: Long = 0L,
+    var touchLowEnterConfirmationMs: Long = 0L,
+    var touchMediumEnterConfirmationMs: Long = 0L,
+    var touchHighEnterConfirmationMs: Long = 0L,
+    var touchStickFullSpeed: Float = 900f,
+    var touchInvertY: Boolean = false,
+    var touchUseResponseCurve: Boolean = false,
+    /** True keeps the control center as neutral; false makes the initial touch neutral. */
+    var touchAimStickUsesTouchPosition: Boolean = true,
+    var touchAimStickFullDisplacementPx: Float = 220f,
+    var touchAimStickDeadzonePx: Float = 8f,
+
+    /* Touch Aim two-state modes (opt-in; old layouts remain manual three-stage) */
+    var touchAimMode: TouchAimMode = TouchAimMode.MANUAL_THREE_STAGE,
+    var touchAimAppliedCalibrationId: String = "",
+    var touchAimAppliedCalibrationName: String = "",
+    var touchAimSensorTransforms: List<TouchAimSensorTransform> = emptyList(),
+    var touchAimAimPayload: String = "",
+    var touchAimShootPayload: String = "RT:1.0",
+    var touchAimKeepAimPayloadWhileShooting: Boolean = true,
+    var touchAimShootSensitivity: Float = 1f,
+    var touchAimShootBehavior: TouchAimShootBehavior =
+        TouchAimShootBehavior.HOLD_WHILE_ABOVE,
+    var touchAimManualThresholdsInitialized: Boolean = false,
+    var touchAimManualShootOnThreshold: Float = 5.2f,
+    var touchAimManualShootOffThreshold: Float = 4.95f,
+    var touchAimShootOnThreshold: Float = 1f,
+    var touchAimShootOffThreshold: Float = 0.75f,
+    var touchAimTwoStateSmoothing: Float = 0.35f,
+    var touchAimEnterShootConfirmationMs: Long = 90L,
+    var touchAimReturnToAimConfirmationMs: Long = 120L
+)
+
+/* helper when we auto-create new controls */
+fun ControlType.defaultPayload(): String = when (this) {
+    ControlType.BUTTON   -> "BUTTON_PRESSED"
+    ControlType.STICK    -> "STICK"
+    ControlType.CURVED_STICK -> "STICK"
+    ControlType.RADIAL_CURVED_STICK -> "STICK"
+    ControlType.TOUCHPAD -> "TOUCHPAD"
+    ControlType.TOUCH_AIM -> "TOUCH_AIM"
+    ControlType.RECENTER -> "RECENTER"
+}
