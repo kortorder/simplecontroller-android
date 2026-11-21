@@ -35,6 +35,28 @@ class PhoneOutputReceiverTests(unittest.TestCase):
     def event(self, sequence, command, event=0, scope="ring"):
         return self.send(f"PHONE_EVENT_V1:phone:{sequence}:{quote_plus(scope)}:0:{event}:{quote_plus(command)}")
 
+    def test_late_old_socket_release_cannot_clear_new_activation(self):
+        self.state(1, "X360A_HOLD")
+        self.assertEqual("PHONE_ACK_V1:phone:10", self.send("PHONE_ACTIVATE_V1:phone:10"))
+        self.assertEqual("PHONE_LEASE_V1_ACK:phone:11:3000", self.send("PHONE_LEASE_V1:phone:11:3000"))
+        self.state(12, "X360B_HOLD")
+        self.state(13, "RT:0.6")
+        pad = receiver.gamepads["player1"]
+        # First delivery from the previous ACK socket, after the fresh route is live.
+        old_socket = ("127.0.0.1", 31140)
+        response = receiver.process_command("player1:RELEASE_ALL:phone:5", old_socket)
+        self.assertEqual("RELEASE_ALL_ACK:phone:5", response)
+        self.assertEqual({"B"}, pad.raw.buttons)
+        self.assertEqual(0.6, pad.raw.right_trigger)
+        self.assertIn("phone", receiver.phone_output_protocol.leases)
+        # The second low-latency socket cannot replay input from before activation.
+        receiver.process_command("player1:OUTPUT:phone:6:X360A_HOLD", old_socket)
+        self.assertEqual({"B"}, pad.raw.buttons)
+        # An intentional release from the current route must still release everything.
+        self.assertEqual("RELEASE_ALL_ACK:phone:20", self.send("RELEASE_ALL:phone:20"))
+        self.assertFalse(pad.raw.buttons)
+        self.assertEqual(0.0, pad.raw.right_trigger)
+
     def test_scoped_phone_trigger_release_preserves_face_and_voice(self):
         pad=receiver.gamepads["player1"]
         pad.face_set("RT",True); pad.voice_set("RT",0.8)

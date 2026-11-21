@@ -78,6 +78,8 @@ def _reject_constant(value: str) -> object:
 
 def decode_request(data: bytes) -> dict:
     """Decode strict UTF-8 JSON, rejecting duplicate fields and NaN/Infinity."""
+    if len(data) > MAX_REQUEST_BYTES:
+        raise ProtocolError("request exceeds byte limit")
     try:
         return json.loads(data.decode("utf-8"), object_pairs_hook=_strict_object,
                           parse_constant=_reject_constant)

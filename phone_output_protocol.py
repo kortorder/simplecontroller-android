@@ -5,6 +5,7 @@ Acknowledgements confirm processing or supersession, never game recognition.
 """
 import math
 import re
+import time
 from urllib.parse import unquote_plus, quote_plus
 
 CAPABILITY = "PHONE_OUTPUT_V1"
@@ -99,7 +100,7 @@ class PhoneEventGuard:
 
 
 class PhoneOutputProtocolState:
-    def __init__(self, lock, barrier_is_current, apply_state, dispatch_event, conflict_status=None, activate_phone=None):
+    def __init__(self, lock, barrier_is_current, apply_state, dispatch_event, conflict_status=None, activate_phone=None, clock=time.monotonic):
         self.lock = lock
         self.barrier_is_current = barrier_is_current
         self.apply_state = apply_state
@@ -116,10 +117,15 @@ class PhoneOutputProtocolState:
         self.event_outputs = {}
         self.activation_barriers = {}
         self.completed_activations = set()
+        self.clock = clock
+        self.leases = {}
+        self.lease_revisions = {}
+        self.expired_leases = {}
 
     def legacy_packet_is_current(self, session, sequence):
         with self.lock:
-            return sequence > self.activation_barriers.get(session, -1)
+            return (session not in self.expired_leases and session not in self.retired
+                    and sequence > self.activation_barriers.get(session, -1))
 
     def newest_sequence(self, session, keys):
         with self.lock:
@@ -129,7 +135,7 @@ class PhoneOutputProtocolState:
             return max(sequences, default=-1)
 
     def _allowed(self, session, player):
-        return session in self.negotiated and session not in self.retired and self.players.get(player) == session
+        return session in self.negotiated and session not in self.retired and session not in self.expired_leases and self.players.get(player) == session
 
     def event_is_current(self, session, player, scope, generation, sequence):
         with self.lock:
@@ -191,8 +197,25 @@ class PhoneOutputProtocolState:
             self.apply_state(self._effective(guard.session, key, command), guard.player)
             return True
 
+    def expire_leases(self):
+        """Only explicitly leased phone sessions expire; legacy clients are unchanged."""
+        with self.lock:
+            now = self.clock()
+            for session, deadline in tuple(self.leases.items()):
+                if now < deadline:
+                    continue
+                self.leases.pop(session, None)
+                observed = [self.lease_revisions.get(session, -1), self.activation_barriers.get(session, -1)]
+                observed += [value for (owner, _), value in self.revisions.items() if owner == session]
+                self.expired_leases[session] = max(observed)
+                for player, owner in tuple(self.players.items()):
+                    if owner == session:
+                        self.clear_outputs((player,))
+                        self.activate_phone(player)
+
     def process(self, data, player):
-        if not data.startswith(("PHONE_CAPS_V1:", "PHONE_ACTIVATE_V1:", "PHONE_STATE_V1:", "PHONE_EVENT_V1:", "PHONE_END_V1:")):
+        self.expire_leases()
+        if not data.startswith(("PHONE_LEASE_V1:", "PHONE_CAPS_V1:", "PHONE_ACTIVATE_V1:", "PHONE_STATE_V1:", "PHONE_EVENT_V1:", "PHONE_END_V1:")):
             return False, None
         if len(data.encode("utf-8")) > 1000 or player not in ("player1", "player2"):
             return True, None
@@ -226,8 +249,21 @@ class PhoneOutputProtocolState:
             status = "MASKED" if self.conflict_status(key, player) else "CLEAR"
             return ack + f":{status}:{quote_plus(key)}"
         with self.lock:
-            if not self._allowed(session, player):
+            reactivating = (parts[0] == "PHONE_ACTIVATE_V1" and session in self.expired_leases
+                            and session in self.negotiated and session not in self.retired
+                            and self.players.get(player) == session
+                            and sequence > self.expired_leases[session])
+            if not self._allowed(session, player) and not reactivating:
                 return True, None
+            if parts[0] == "PHONE_LEASE_V1":
+                if (len(parts) != 4 or parts[3] != "3000" or session not in self.activation_barriers
+                        or sequence <= self.activation_barriers[session]
+                        or not self.barrier_is_current(session, sequence)):
+                    return True, None
+                if sequence > self.lease_revisions.get(session, -1):
+                    self.lease_revisions[session] = sequence
+                    self.leases[session] = self.clock() + 3.0
+                return True, f"PHONE_LEASE_V1_ACK:{session}:{sequence}:3000"
             if parts[0] == "PHONE_ACTIVATE_V1":
                 if len(parts) != 3:
                     return True, None
@@ -237,6 +273,7 @@ class PhoneOutputProtocolState:
                 if not self.barrier_is_current(session, sequence) and sequence != self.activation_barriers.get(session):
                     return True, None
                 self.activation_barriers[session] = sequence
+                self.expired_leases.pop(session, None)
                 self.clear_outputs((player,))
                 self.activate_phone(player)
                 self.completed_activations.add(identity)

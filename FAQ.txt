@@ -1,0 +1,285 @@
+SIMPLE CONTROLLER — CONNECTION AND BEGINNER FAQ
+Updated November 21, 2026
+
+START HERE
+
+What is Simple Controller?
+It turns your phone into a controller you can arrange around your reach. One
+finger can move a stick, hold a button, aim and fire together, or steer while
+accelerating. Try the controls in Practice before connecting a game.
+
+Where is help in the app?
+Open Bridge menu or All controls, then Support. The Learn, PC and Console tabs
+provide the picture guide and connection instructions. The first installation
+shows the picture guide automatically. You can skip it and replay it in Support.
+Updating an existing installation does not replace your saved profiles.
+
+What do I need for each connection?
+- Practice: only the phone. It sends no game inputs.
+- Windows PC: the phone, your existing PC and home network, plus the free
+  receiver software and its virtual-controller driver. No Pico, adaptive
+  controller or console adapter is needed for this PC route.
+- Xbox: a programmed Raspberry Pi Pico W, an Xbox Adaptive Controller and the
+  cables/power supply described below. The phone connects to the Pico over Wi-Fi.
+- Permobil joystick: a second Pico W running the separate Omni2 firmware.
+- PlayStation: an additional compatible console-adapter route is required.
+  The Xbox Pico firmware does not connect directly to a PS5 or to Sony's Access
+  controller. See the PlayStation section before buying hardware.
+
+Official project links
+iPhone app and source:
+https://github.com/kortorder/simplecontroller-ios
+iPhone App Store listing:
+https://apps.apple.com/us/app/simple-controller/id6834564165
+Android app and source:
+https://github.com/kortorder/simplecontroller-android
+Phone-to-console Pico W bridge:
+https://github.com/kortorder/simplecontroller-pico-wifi-bridge
+Permobil Omni2 joystick bridge:
+https://github.com/kortorder/omni2-pico-xbox-joystick
+
+WINDOWS PC — NO ADDITIONAL BRIDGE HARDWARE
+
+Does "no additional hardware" mean no setup?
+No. Install the free receiver on the PC once and start it whenever you play.
+The virtual-controller driver makes the phone's gamepad inputs appear to games
+as a controller. Keyboard and mouse actions also require the receiver.
+The phone alone cannot send inputs to a PC that has no receiver running.
+
+How do I connect?
+1. Open your app's GitHub Releases page and download PC-Receiver.zip. Extract
+   the whole folder on the Windows PC. Follow its README, install the listed
+   free driver, then run Setup-Windows-Receiver.bat once. Start it with
+   Start-Windows-Receiver.bat whenever you play;
+   review any driver installation prompts yourself. Use this new receiver for
+   the iPhone PC connection, rather than an arbitrary older receiver copy.
+2. Connect the PC and phone to the same trusted home network. The PC may use
+   Ethernet if it is on that same local network. Avoid an isolated guest network.
+3. Start the receiver and leave its window open. Read the local IPv4 address
+   and port it displays. The packaged receiver uses UDP port 42734.
+4. On iPhone, open Bridge menu -> Bridge settings and choose Windows PC.
+   On Android, choose the Windows receiver output mode in connection settings.
+5. Type the receiver's IPv4 address and port into the app. Use the PC's address,
+   not the phone's address, the router's address or a web address. Do not enter
+   127.0.0.1: that means the phone itself when typed on the phone.
+6. Save and connect. Allow iPhone Local Network access if prompted. If Windows
+   asks about the receiver's firewall access, permit it on your private home
+   network. Do not forward the port on your router or expose it to the Internet.
+7. Open Windows' game-controller test panel (search for "Set up USB game
+   controllers"). Test one button, both sticks and the triggers. Release each
+   control, then press Stop / Release all. Confirm everything returns to rest.
+8. Start the game and select its controller input if necessary. Map actions to
+   the game's own controls. Keep the receiver open while playing.
+
+Is the PC software free?
+Yes. The receiver uses free Python packages and the free ViGEmBus virtual Xbox
+controller driver. ViGEmBus is archived and no longer maintained. Use the
+official final 1.22.0 release linked in the receiver README; future Windows
+compatibility is not guaranteed. Setup skips the older driver installer bundled
+with vgamepad. You review and install the driver yourself.
+
+Where can I download the receiver and videos?
+https://github.com/kortorder/simplecontroller-ios/releases
+https://github.com/kortorder/simplecontroller-android/releases
+Both app releases include the same PC receiver package. The receiver README
+contains the exact supported Python/dependency setup and troubleshooting steps.
+
+Why is my PC not connecting?
+Check that the receiver is running, the IP and port match its window, both
+devices share a reachable LAN, and the Windows private-network firewall allows
+the receiver. A VPN, guest isolation, changed DHCP address or a second receiver
+using the port can prevent connection. The iPhone Windows PC mode is different
+from Pico SCX2 mode; choosing the wrong mode will not work.
+
+Does this work on Mac or Linux games?
+The supplied game-input receiver targets Intel/AMD 64-bit Windows (Windows 11 recommended), not Windows ARM. It needs 64-bit Python 3.10 or newer. The iPhone and bridge software
+can be developed or tested on a Mac, but that is not a Mac game-input receiver.
+This release's new iPhone PC path has protocol, timing and local UDP tests;
+physical Windows driver/game acceptance still needs a Windows test. Android's
+original Windows command path remains available in the updated receiver.
+
+XBOX — PICO AND ADAPTIVE CONTROLLER
+
+Exactly which Pico should I get?
+Use a Raspberry Pi Pico W or Pico WH based on the RP2040 chip. "WH" means the
+header pins are already soldered on. Those pins are not needed for the USB-only
+setup. A case is optional. Use a micro-USB DATA cable; a charge-only cable cannot
+install firmware or carry controller data.
+
+This project's supplied build instructions target pico_w / RP2040. A plain
+Pico has no Wi-Fi. A Pico 2 W uses a different processor and is not a drop-in
+replacement for these firmware files. One Pico is enough for phone controls;
+use a separate second Pico for the Omni2 joystick.
+
+Will a new Pico work as soon as I plug it in?
+No. It needs the correct firmware and your own network configuration first.
+The bridge repository provides source and a local provisioning/build guide,
+not a universal preconfigured UF2. A helper may be needed for that initial
+build. A personally configured UF2 contains Wi-Fi details: never publish it
+or share it as a community download.
+
+How do I set up Xbox?
+1. Connect the Xbox Adaptive Controller to the Xbox with its USB cable. In Xbox
+   Accessories, update the controller firmware before setting up the Picos.
+2. Use the compatible XAC external DC supply specified by Microsoft for the
+   side-port power required by this build. The Pico firmware requests 500 mA;
+   the controller's USB-C cable alone does not provide the same side-port
+   allowance. Use the correct regulated 5V supply and correct connector/polarity.
+   A plug fitting the socket does not establish electrical compatibility.
+3. Follow the phone bridge repository's build guide to privately configure a
+   Pico W for your 2.4GHz WPA2 home Wi-Fi and the intended LEFT XAC USB port.
+   For ordinary full-press LT/RT, choose the USB trigger-button firmware.
+4. Disconnect that Pico from the XAC. Hold BOOTSEL while connecting it to a
+   computer, then release. When RPI-RP2 appears, copy the correctly built pico_w
+   UF2 onto it. The board restarts. BOOTSEL is only for installation; reconnect
+   normally during everyday use.
+5. Find the Pico's IPv4 address using the bridge guide's discovery helper or
+   your router's device list. A reserved DHCP address makes future use simpler.
+6. Plug the phone Pico into the XAC's LEFT USB port. In the phone app choose
+   Pico / Xbox bridge (SCX2), enter that Pico's IPv4 address and port 42736,
+   and choose USB buttons / full press for LT and RT. Allow local-network access.
+7. In Xbox Accessories -> Adaptive Controller -> Configure, use an editable
+   profile. Assign X1's primary action to Left Trigger and X2's to Right Trigger.
+   Save it to a profile slot and select that slot on the XAC. These spare inputs
+   are needed for this USB trigger method; keep other mappings unchanged.
+8. Connect the app, wait until it is ready, then use Xbox Accessories' test
+   screen. Check A, movement, both triggers and release. Test a held action,
+   press Stop / Release all, and confirm the Xbox sees neutral input.
+9. Try a game only after those checks. Confirm its button assignments. Switching
+   app pages releases old actions and preserves the bridge connection request.
+
+Full bridge setup and build instructions:
+https://github.com/kortorder/simplecontroller-pico-wifi-bridge
+
+Are trigger percentages adjustable through the ordinary XAC USB setup?
+No. USB buttons mode turns every positive LT/RT value into a full press. A saved
+50% value still appears in Practice, but the Xbox receives full press/release.
+True partial pressure requires the separate analog circuit, or the experimental
+Pico XInput / Cronus Zen route. The analog circuit needs additional construction;
+it is not a plug-and-play cable. Do not connect raw Pico GPIO to XAC trigger jacks.
+The existing XAC USB route remains available when exploring other connections.
+
+PERMOBIL OMNI2 — SECOND PICO
+
+How does the chair joystick connect?
+The Omni2's Bluetooth Mouse 2 mode connects directly to the second Pico W. The
+second Pico presents a USB joystick to the XAC's RIGHT USB port. The phone Pico
+stays in LEFT. This does not connect to wheelchair wiring or change drive settings.
+
+1. Follow the Omni2 bridge repository's build and initial installation guide.
+   Use a separate Pico and its matching firmware, not the phone's UF2.
+2. With the chair stationary, select Bluetooth -> Mouse 2 on the Omni2. Follow
+   the documented pairing gesture. The Pico's light becomes steady after pairing.
+3. First test gentle right, left, up and down movements on a computer, letting
+   the stick return to center each time. Then test the XAC's right-stick input.
+4. If quick nudges cause unwanted buttons, use the included Omni Nudge Editor
+   to set all four assignments Off and save. Pairing is preserved. Do not assume
+   a newly built board inherits another user's Off settings.
+
+Can the phone and chair both operate the right stick?
+The XAC gives its right USB port priority, so two ordinary USB connections alone
+can suppress the phone's right stick. The optional shared-right-stick firmware
+for BOTH Picos relays the phone's right-stick input to the chair Pico over Wi-Fi.
+Nonzero phone input takes priority; centering it returns control to the current
+chair input. This option needs the chair Pico's network address and its own setup.
+It has real Mac USB and live-phone tests; complete combined Xbox acceptance is
+still a separate check. The ordinary Bluetooth-only chair firmware remains usable.
+
+Pairing, nudge settings and optional shared-stick instructions:
+https://github.com/kortorder/omni2-pico-xbox-joystick
+
+PLAYSTATION — CHECK THE ADAPTER ROUTE FIRST
+
+Can I plug this Pico into a PS5 or Sony Access controller?
+Not with the XAC firmware. Sony states that the Access controller's USB port is
+for the console connection, charging and updates, and does not accept third-party
+USB accessories. Its external input ports are 3.5mm ports. The Xbox USB setup
+above is therefore not an Access-controller setup recipe.
+
+Is there a possible PlayStation adapter setup?
+The phone bridge source includes an experimental XInput output for Cronus Zen.
+Cronus publishes a PS5 route using Cronus Zen plus Zen LINK, initial Windows
+setup and compatible controller hardware. Its general PS4 USB instructions are
+different. That vendor guidance does not prove that this particular Pico,
+firmware and chair combination works on either console.
+
+For a PlayStation evaluation:
+1. Read the current adapter manufacturer's guide for your EXACT console and
+   firmware. Confirm support for this project's Pico XInput output and any
+   separate adaptive controller/chair input before buying additional hardware.
+2. Keep your working XAC firmware/configuration as a rollback. The Xbox HID
+   firmware and the experimental XInput firmware are different USB outputs.
+3. Follow the bridge's Cronus Zen document to build the XInput variant. In the
+   app choose its matching Cronus Zen adjustable-USB output, not XAC USB buttons.
+4. First use the adapter's input monitor to confirm both sticks, buttons,
+   trigger pressure and neutral release from the Pico.
+5. Follow the vendor's PS4 or PS5 console setup guide. For the current PS5 Zen
+   LINK route, the vendor specifies a Windows 10/11 PC for initial setup, a
+   2.4GHz-capable network, and the PS5 on that same network. Use its current
+   connection diagram and controller requirements rather than Xbox port mapping.
+6. Test the final console's inputs and Stop/release before playing. If the adapter
+   does not recognize the Pico, stop: there is no verified project-specific
+   PlayStation fallback or automatic compatibility conversion.
+
+This project has NOT completed a physical PlayStation acceptance test. It does
+not currently promise a ready-to-use PlayStation setup. Report the exact tested
+hardware/firmware combination if you help verify one; never post private Wi-Fi
+configuration or Bluetooth pairing data.
+
+Sony Access accessory guidance:
+https://www.playstation.com/en-us/support/hardware/access-expansion/
+Cronus PS5 Zen LINK setup:
+https://guide.cronus.support/zenlink-ps5-setup
+Cronus non-PS5 USB setup:
+https://guide.cronus.support/usb-controller-setup
+Project's experimental Zen firmware guide:
+https://github.com/kortorder/simplecontroller-pico-wifi-bridge/blob/main/docs/CRONUS_ZEN.md
+
+CONTROLS, VIDEOS AND SAVED DATA
+
+How do I make one finger do more?
+- Hold Toggle keeps a button pressed after a sufficiently long touch; tap again
+  to release. Auto-Tap/repeat produces repeated presses instead of a steady hold.
+- Stick+ adds actions at chosen distances/directions, such as sprint and jump.
+- Button Aim can hold trigger actions while finger movement controls the right
+  stick. TouchAim's sensor mode uses contact readings, not guaranteed pressure;
+  use comfortable movement/ring alternatives if your phone cannot distinguish them.
+- Macro Mode finishes a timed sequence after one tap. Its default release is
+  200ms. D delays count from the initial activation; commas do not add waits.
+- Center stops retained stick movement. Stop / Release all clears phone actions,
+  including holds and macros. It does not stop independent physical switches or
+  the separate chair joystick.
+
+Are the iPhone and Android versions identical?
+They share many controls, game starters, timing options and connection routes,
+but their native profile formats and some newer interface features differ.
+The iPhone release includes the latest compact movable menus and live auto-center
+toggle. This Android release retains its existing controller interface and adds
+the picture tutorial and Support tabs. Do not assume an arbitrary native iPhone
+backup can be imported into Android. Keep an export from the app you are using.
+
+Where are the videos?
+Both app repositories' Releases pages include the silent 30-second preview and
+the approximately 3:30 beginner guide. The longer guide illustrates the iPhone
+interface; Android uses different menu arrangements for the shared concepts.
+The companion HTML guide offers chapter links and a written reference. The
+App Store accepts previews up to 30 seconds; the longer tutorial is on GitHub.
+
+Will an update erase my layout?
+Install an app update over the same app identity. Do not uninstall first.
+Export a backup through Profiles before changing phones or installing unrelated
+builds. The Android community APK has its own identity and is separate from
+the original Android app. Keep using the matching signed community update.
+
+Where do I ask for help?
+Use your app repository's Issues page. Include the app version, connection mode,
+console/PC type and the step that fails. Do not include passwords, private
+firmware, full device backups or chair Bluetooth identifiers.
+
+Hardware references
+Raspberry Pi Pico W / WH:
+https://www.raspberrypi.com/documentation/microcontrollers/pico-series.html
+Microsoft XAC input-device specification (USB power and input mapping):
+https://assets.xboxservices.com/assets/b8/05/b8055a56-827c-48f8-b8ec-2c7aa66ef069.pdf
+Permobil Omni2 Mouse quick guide:
+https://hub.permobil.com/hubfs/Education%20Resources/Omni2%20Mouse%20Quick%20Guide.pdf

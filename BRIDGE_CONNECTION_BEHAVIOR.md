@@ -1,6 +1,6 @@
-# Pico connection behavior in Android 0.21.0
+# Pico connection behavior in Android 0.22.0
 
-Connect records permission to use the selected SCX2 endpoint and pressure mode.
+Connect records permission to use the selected SCX2 endpoint and trigger output mode.
 This permission is separate from a live UDP session and contains no controls,
 payload queues, stick positions, trigger values or macro playback state.
 
@@ -36,7 +36,7 @@ is required. Clock rollback, incompatible monotonic time or malformed saved inte
 fails closed.
 
 A separate `bridge_connection_intent` preference file stores the endpoint,
-pressure option and presence timestamps. No profile file is changed by this
+trigger mode and presence timestamps. No profile file is changed by this
 policy. A one-second foreground heartbeat permits a process killed without a
 background callback to reconnect on a quick relaunch; the limit is conservatively
 measured from the last recorded heartbeat. No held output is restored.
@@ -48,5 +48,14 @@ records, retry bounds, neutral acknowledgement, stale session/endpoint replies,
 old queued presses, actual UDP recovery, page retention, macro cancellation and
 real Android activity ownership cleanup. The signed APK updates the existing
 community application ID and signing key. Emulator verification does not replace
-physical Android, Pico/XAC or Xbox gameplay checks. Firmware and SCX2 wire bytes
-are unchanged.
+physical Android, Pico/XAC or Xbox gameplay checks. SCX2 formats 2 and 3 remain unchanged. USB trigger output uses the explicitly
+negotiated format 4; see [USB trigger output](USB_TRIGGER_OUTPUT.md).
+
+## Trigger-mode persistence
+
+The old `adjustableTriggers` preference is retained: absent/new mode with false
+migrates to Off, true migrates to Adjustable. A new `triggerMode` preference is
+written on an explicit connection-setting choice. USB is selected separately.
+Old connection-intent records with only `pressure` remain readable. New records
+also contain the exact mode; conflicting, unknown or malformed values cannot
+automatically reconnect. Loading an old layout does not write or convert it.

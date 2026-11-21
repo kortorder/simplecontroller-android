@@ -5,7 +5,7 @@ Complete Controller Server
 A server that handles both touchpad/mouse and gamepad controls.
 Combines stability-focused mouse handling with full gamepad support.
 
-Usage: python merged_controller.py
+Usage: python simple_controller_receiver.py
 """
 
 import socket
@@ -28,6 +28,7 @@ from face_input_server import (FaceInputState, FaceInputServer, MergedGamepad, M
                                synchronized, canonical_phone_key, keyboard_name, FACE_INPUT_TAG)
 from voice_input_server import VoiceInputState, VoiceInputServer
 from relative_mouse import send_relative_mouse
+from ios_pc_adapter import IOSPCAdapter
 from phone_output_protocol import PhoneOutputProtocolState, state_key as phone_state_key, inactive_command
 
 # Configure pyautogui for mouse handling
@@ -162,7 +163,7 @@ def show_connection_info():
     print(" Simple Controller Receiver is running", flush=True)
     print("========================================", flush=True)
     print()
-    print("Put this into the Android app:", flush=True)
+    print("Enter these in Simple Controller on iPhone or Android:", flush=True)
     print()
     print(f"IP Address: {primary_ip}", flush=True)
     print(f"Port:       {PORT}", flush=True)
@@ -528,7 +529,7 @@ def current_release_generation(player_id):
 
 
 phone_output_protocol = PhoneOutputProtocolState(
-    release_state_lock, output_packet_is_current,
+    release_state_lock, lambda session, sequence: sequence > release_barriers.get(session, -1),
     lambda command, player: apply_phone_aggregate(command, player),
     lambda command, player, guard, session: dispatch_phone_event(command, player, guard, session),
     lambda key, player: phone_output_is_masked(key, player),
@@ -632,7 +633,11 @@ def release_outputs(player_ids, reason="explicit RELEASE_ALL"):
 def release_all_outputs(session_id, sequence):
     """Apply each global release identity once; duplicates still receive an ACK."""
     with release_state_lock:
-        if sequence <= release_barriers.get(session_id, -1):
+        # A first delivery may arrive after a newer neutral activation when UDP
+        # reorders an old socket's close-time flush behind a reconnect. A stale
+        # release is acknowledged by the caller, but must not clear new owners.
+        activation = phone_output_protocol.activation_barriers.get(session_id, -1)
+        if sequence <= max(release_barriers.get(session_id, -1), activation):
             return False
         release_barriers[session_id] = sequence
 
@@ -1358,6 +1363,9 @@ def process_timed_sequence(commands, player_id='player1', release_generation=Non
 def process_command(data, addr, player_id='player1', phone_guard=None):
     """Process incoming command from the Android app"""
     data = data.strip()
+    handled, pc_response = ios_pc_adapter.protocol.process(data, addr)
+    if handled:
+        return pc_response
     if not data:
         return
     if phone_guard is not None and not phone_guard():
@@ -1716,6 +1724,20 @@ def process_command(data, addr, player_id='player1', phone_guard=None):
     # Anything else just gets logged
     logger.info(f"Command from {addr}: {data}")
 
+ios_pc_adapter = IOSPCAdapter(phone_output_protocol, neutralize_legacy_phone_outputs,
+                              send_relative_mouse, lambda ticks: mouse.wheel(ticks), release_state_lock)
+
+def start_ios_pc_lease_scheduler():
+    def watch():
+        while True:
+            time.sleep(0.025)
+            try:
+                ios_pc_adapter.protocol.expire()
+                phone_output_protocol.expire_leases()
+            except Exception:
+                logger.exception("PC input release failed; check the receiver window")
+    threading.Thread(target=watch, daemon=True, name="SCPC1 lease").start()
+
 def clean_inactive_connections():
     """Remove connections that haven't sent data in a while"""
     now = time.time()
@@ -1780,6 +1802,7 @@ def udp_server():
             logger.warning(f"Could not set UDP socket buffer sizes: {str(e)}")
         
         sock.bind((HOST, PORT))
+        start_ios_pc_lease_scheduler()
         logger.info(f"UDP server started on {HOST}:{PORT}")
         
         # Set up a housekeeping timer for cleaning inactive connections
@@ -1789,7 +1812,7 @@ def udp_server():
         
         while True:
             try:
-                data, addr = sock.recvfrom(1024)
+                data, addr = sock.recvfrom(8193)
                 
                 try:
                     decoded_data = data.decode('utf-8').strip()
@@ -1854,6 +1877,7 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
     finally:
+        release_outputs(tuple(gamepads), "receiver shutdown")
         voice_input_server.stop()
         face_input_server.stop()
         stop_camera_follow_worker()

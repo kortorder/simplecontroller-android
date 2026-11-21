@@ -1,0 +1,4 @@
+569fd9d30a05ff3c58aed65ef7437095236bb9cb3fb832735a2660d448e00514  SimpleController-Android-0.24.0-preview9-source.zip
+5a8785fe9c05bb5237ccddb23e702eb5bf8f6e24e12506ec7d08d70412866fec  SimpleController-Android-0.24.0-preview9-source.bundle
+6f41b2f23b9ee866c40f5f07f3fdb434ed419ae4f22834dacd2bd4876f37c165  PC-Receiver.zip
+a4c7e7ad084823ac28b7dee22a154b2ae03b49eda50b0a5ed8f141006b6e65f9  SimpleController-Android-0.24.0-preview9.apk
