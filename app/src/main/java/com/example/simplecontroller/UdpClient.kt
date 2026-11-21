@@ -1,0 +1,1020 @@
+package com.example.simplecontroller.net
+
+import android.os.Build
+import android.content.SharedPreferences
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.util.concurrent.ConcurrentHashMap
+import java.util.UUID
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import com.example.simplecontroller.CbProtocol
+import com.example.simplecontroller.model.isPageTransportCommand
+
+/**
+ * Provides UDP communication for lower latency position updates.
+ * Designed to complement NetworkClient for time-sensitive data.
+ */
+object UdpClient {
+
+    enum class ReleaseDelivery {
+        ACK_PENDING,
+        RECEIVER_UNAVAILABLE,
+        CONSOLEBRIDGE_UNAVAILABLE
+    }
+
+    // ===== ConsoleBridge (CBv0) toggle =====
+    @Volatile private var useCbv0: Boolean = false
+    private const val CB_PORT = 9010
+
+    /** Enable/disable CBv0 binary sending at runtime. */
+    fun setConsoleBridgeEnabled(enabled: Boolean) {
+        if (useCbv0 != enabled) invalidatePhoneCapability()
+        useCbv0 = enabled
+        if (!enabled) requestPhoneCapability()
+    }
+
+    /** Decide which UDP port to target based on protocol. */
+    private fun targetPort(): Int = if (useCbv0) CB_PORT else serverPort
+
+    // Using constants for tagging and configuration
+    private const val TAG = "UdpClient"
+    private const val DEFAULT_PORT = 9001
+
+    // Socket and address information
+    private var socket: DatagramSocket? = null
+    private var serverAddress: InetAddress? = null
+    private var serverPort = DEFAULT_PORT
+
+    // Coroutine scope for background operations
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    // UI thread handler for key state management
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    // Player role from NetworkClient
+    private val playerRole get() = NetworkClient.getPlayerRole()
+
+    // Connection status
+    private var isInitialized = false
+
+    private data class OutputRoute(val socket: DatagramSocket?, val address: InetAddress?,
+                                   val port: Int, val consoleBridge: Boolean,
+                                   val player: NetworkClient.PlayerRole)
+    private fun captureOutputRoute() = OutputRoute(socket, serverAddress, serverPort, useCbv0, playerRole)
+    private fun ticketIsCurrent(ticket: OutputSafetyEpoch.Ticket, route: OutputRoute, preparing: Boolean = false): Boolean =
+        outputSafetyEpoch.isCurrent(ticket) && socket === route.socket && serverAddress == route.address &&
+            serverPort == route.port && useCbv0 == route.consoleBridge && playerRole == route.player &&
+            (NetworkClient.outputMode != NetworkClient.OutputMode.WINDOWS || (pcForeground &&
+                NetworkClient.connectionStatus.value.let { it == NetworkClient.ConnectionStatus.CONNECTED ||
+                    (preparing && it == NetworkClient.ConnectionStatus.CONNECTING) } &&
+                (preparing || !pcConnectionPreparing)))
+
+    // Every output gets a process-unique session/sequence. RELEASE_ALL advances the
+    // generation locally and gives the receiver a barrier against older UDP packets.
+    private val outputSafetyEpoch = OutputSafetyEpoch()
+
+    private val phoneActivationGate = PhoneProtocolActivationGate()
+    private val localSelected get() = NetworkClient.localOutputSelected
+    private val localReady get() = localSelected && NetworkClient.connectionStatus.value == NetworkClient.ConnectionStatus.CONNECTED
+    private var localFallbackScope: PhoneOutputScope? = null
+    @Volatile private var initializationGeneration = 0L
+    private val pcLease = PhoneReceiverLease()
+    private var pcLeaseRenewal: Runnable? = null
+    @Volatile private var pcForeground = true
+    @Volatile private var pcConnectionPreparing = false
+    private var pcProtectionRequired = false
+    val floatingSupported: Boolean get() = if (localSelected) localReady else phoneActivationGate.active &&
+        (NetworkClient.outputMode != NetworkClient.OutputMode.WINDOWS || pcLease.inputReady)
+    val serverSupportsFloating: Boolean get() = if (localSelected) localReady else phoneActivationGate.receiverSupported
+    val activationPending: Boolean get() = if (localSelected) !localReady else phoneActivationGate.pending || pcLease.preparing ||
+        (NetworkClient.outputMode == NetworkClient.OutputMode.WINDOWS &&
+            (pcConnectionPreparing || NetworkClient.connectionStatus.value != NetworkClient.ConnectionStatus.CONNECTED))
+    private var activationSequence: Long? = null
+    @Volatile private var capabilityNonce: String? = null
+    @Volatile private var floatingPreparationGeneration = 0L
+
+    /** Opaque permission to keep waiting for this same touch's original output route. */
+    class FloatingPreparationTicket internal constructor(private val routeIsCurrent: () -> Boolean) {
+        private var invalidated = false
+
+        @Synchronized internal fun isCurrent(): Boolean {
+            if (!invalidated && !routeIsCurrent()) invalidated = true
+            return !invalidated
+        }
+    }
+    private val _scopedCleanupConfirmed = MutableStateFlow<Boolean?>(null)
+    val scopedCleanupConfirmed = _scopedCleanupConfirmed.asStateFlow()
+    private val _outputConflicts = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val outputConflicts = _outputConflicts.asStateFlow()
+    private val conflictTracker = PhoneOutputConflictTracker(outputSafetyEpoch.sessionId)
+    fun outputIsMasked(key: String): Boolean = _outputConflicts.value[key] == true
+
+    internal fun acceptPhoneOutputFeedback(message: String) {
+        if (conflictTracker.accept(message)) _outputConflicts.value = conflictTracker.snapshot()
+    }
+    private val phoneCoordinator by lazy {
+        PhoneOutputCoordinator(outputSafetyEpoch.sessionId,
+            { outputSafetyEpoch.nextTicket().sequence }, ::sendPhonePacket,
+            { delayMs, task -> mainHandler.postDelayed({ task() }, delayMs) }).also { coordinator ->
+            coordinator.cleanupListener = { _scopedCleanupConfirmed.value = it }
+            coordinator.resolvedAnalogListener = NetworkClient::updateLocalAnalogOwnership
+        }
+    }
+
+    @Synchronized internal fun configureLocalOwnership(enabled: Boolean) {
+        phoneCoordinator.invalidateAll()
+        phoneCoordinator.unifiedAnalogChannels = enabled
+        localFallbackScope = null
+    }
+
+    /** Safety fallback for existing direct command callers; ordinary controls use their own scopes. */
+    @Synchronized internal fun sendLocalCommand(command: String) {
+        if (!localReady || isPageTransportCommand(command)) return
+        val owner = localFallbackScope?.takeIf { it.isActive }
+            ?: phoneCoordinator.beginScope("local-direct", "player1").also { localFallbackScope = it }
+        owner.sendCommand(command)
+    }
+
+    @Synchronized private fun localDirectScope(): PhoneOutputScope? {
+        if (!localReady) return null
+        return localFallbackScope?.takeIf { it.isActive }
+            ?: phoneCoordinator.beginScope("local-direct", "player1").also { localFallbackScope = it }
+    }
+
+    fun beginOutputScope(stableId: String): PhoneOutputScope =
+        phoneCoordinator.beginScope(stableId,
+            if (localSelected || playerRole == NetworkClient.PlayerRole.PLAYER1) "player1" else "player2")
+
+    @Synchronized fun invalidatePhoneCapability() {
+        pcLeaseRenewal?.let(mainHandler::removeCallbacks); pcLeaseRenewal = null
+        pcLease.invalidate()
+        floatingPreparationGeneration++
+        phoneActivationGate.invalidate()
+        capabilityNonce = null
+        activationSequence = null
+        conflictTracker.clear()
+        _outputConflicts.value = emptyMap()
+        phoneCoordinator.invalidateAll()
+        localFallbackScope = null
+    }
+
+    @Synchronized fun requestPhoneCapability() {
+        if (localSelected) return
+        // Wait for the low-latency route too, so its async installation cannot retire
+        // the activation/lease that was just negotiated on NetworkClient's socket.
+        if (NetworkClient.outputMode == NetworkClient.OutputMode.WINDOWS && (!pcForeground || !isInitialized)) return
+        if (useCbv0 || NetworkClient.connectionStatus.value != NetworkClient.ConnectionStatus.CONNECTED) return
+        if (capabilityNonce != null || floatingSupported || phoneActivationGate.pending || pcLease.preparing) return
+        val nonce = UUID.randomUUID().toString().replace("-", "")
+        capabilityNonce = nonce
+        val epoch = outputSafetyEpoch.nextTicket()
+        NetworkClient.requestPhoneFrame(
+            PhoneOutputProtocol.capability(outputSafetyEpoch.sessionId, nonce),
+            PhoneOutputProtocol.capabilityAck(outputSafetyEpoch.sessionId, nonce),
+            { !useCbv0 && capabilityNonce == nonce && outputSafetyEpoch.isCurrent(epoch) }) { confirmed ->
+            synchronized(this) {
+                if (capabilityNonce == nonce) {
+                    capabilityNonce = null
+                    phoneActivationGate.receiverConfirmed(confirmed && !useCbv0)
+                    if (!confirmed && NetworkClient.outputMode == NetworkClient.OutputMode.WINDOWS) {
+                        if (pcProtectionRequired) { NetworkClient.pcReceiverLeaseLost(); return@synchronized }
+                        pcConnectionPreparing = false
+                        NetworkClient.reportUnprotectedPCReceiver(capabilityConfirmed = false)
+                    }
+                    tryActivatePhoneProtocol()
+                }
+            }
+        }
+    }
+
+    /** Begin preparation once before capturing a pending touch's route ticket. */
+    fun prepareFloatingControls(): Boolean {
+        if (localSelected) return localReady
+        if (floatingSupported) return true
+        if (useCbv0) return false
+        // onStop closes the ACK socket even while the legacy UDP socket survives.
+        // A new intentional zone touch may reconnect, but never restart a live route.
+        when (NetworkClient.connectionStatus.value) {
+            NetworkClient.ConnectionStatus.DISCONNECTED, NetworkClient.ConnectionStatus.ERROR -> {
+                NetworkClient.start()
+                return false
+            }
+            NetworkClient.ConnectionStatus.CONNECTING -> return false
+            NetworkClient.ConnectionStatus.CONNECTED -> Unit
+        }
+        if (serverSupportsFloating) tryActivatePhoneProtocol() else requestPhoneCapability()
+        return floatingSupported
+    }
+
+    /**
+     * Capture after initial preparation so its intentional DISCONNECTED -> CONNECTING start is
+     * allowed. Later connection loss, route/player/transport changes and Release All cancel it.
+     */
+    @Synchronized fun captureFloatingPreparationTicket(): FloatingPreparationTicket {
+        val epoch = outputSafetyEpoch.nextTicket()
+        val generation = floatingPreparationGeneration
+        val route = captureOutputRoute()
+        return FloatingPreparationTicket {
+            generation == floatingPreparationGeneration && !useCbv0 && ticketIsCurrent(epoch, route, preparing = true) &&
+                NetworkClient.connectionStatus.value.let {
+                    it == NetworkClient.ConnectionStatus.CONNECTING || it == NetworkClient.ConnectionStatus.CONNECTED
+                }
+        }
+    }
+
+    fun isFloatingPreparationCurrent(ticket: FloatingPreparationTicket): Boolean = ticket.isCurrent()
+
+    /** Bounded pending-touch polls may retry the handshake, but can never reconnect after loss. */
+    fun prepareFloatingControls(ticket: FloatingPreparationTicket): Boolean {
+        if (localSelected) return localReady && ticket.isCurrent()
+        if (!isFloatingPreparationCurrent(ticket)) return false
+        if (NetworkClient.connectionStatus.value != NetworkClient.ConnectionStatus.CONNECTED) return false
+        if (!floatingSupported) {
+            if (serverSupportsFloating) tryActivatePhoneProtocol() else requestPhoneCapability()
+        }
+        return isFloatingPreparationCurrent(ticket) && floatingSupported
+    }
+
+    /** Do not switch a legacy press/latch/pending sender to scoped releases halfway through. */
+    fun setLegacyOutputBusy(owner: Any, busy: Boolean) {
+        if (localSelected) return
+        phoneActivationGate.setLegacyBusy(owner, busy)
+        tryActivatePhoneProtocol()
+    }
+
+    private fun tryActivatePhoneProtocol() {
+        if (localSelected) return
+        if (!phoneActivationGate.tryActivate(!useCbv0 &&
+                NetworkClient.connectionStatus.value == NetworkClient.ConnectionStatus.CONNECTED)) return
+        val ticket = outputSafetyEpoch.nextTicket()
+        val route = captureOutputRoute()
+        activationSequence = ticket.sequence
+        NetworkClient.requestPhoneFrame(PhoneOutputProtocol.activation(ticket.sessionId,ticket.sequence),
+            PhoneOutputProtocol.acknowledgement(ticket.sessionId,ticket.sequence),
+            { activationPending && activationSequence == ticket.sequence && ticketIsCurrent(ticket,route, preparing = true) }) { okay ->
+            if (activationSequence == ticket.sequence) {
+                activationSequence = null
+                if (phoneActivationGate.activationConfirmed(okay)) {
+                    if (NetworkClient.outputMode == NetworkClient.OutputMode.WINDOWS) sendPCLease(pcLease.begin())
+                    else resendCameraFollowState()
+                } else if (NetworkClient.outputMode == NetworkClient.OutputMode.WINDOWS && pcForeground) {
+                    NetworkClient.pcReceiverLeaseLost()
+                }
+            }
+        }
+    }
+
+    @Synchronized internal fun beginPCConnection() {
+        outputSafetyEpoch.invalidateQueuedSends()
+        invalidatePhoneCapability()
+        pcConnectionPreparing = true
+    }
+
+    @Synchronized internal fun resetPCProtectionForDestination() {
+        pcProtectionRequired = false
+        pcConnectionPreparing = false
+    }
+
+    @Synchronized internal fun pausePCReceiverLease() {
+        pcForeground = false
+        if (NetworkClient.outputMode == NetworkClient.OutputMode.WINDOWS) invalidatePhoneCapability()
+    }
+
+    @Synchronized internal fun resumePCReceiverLease() {
+        val wasForeground = pcForeground
+        pcForeground = true
+        if (!wasForeground && NetworkClient.outputMode == NetworkClient.OutputMode.WINDOWS &&
+            NetworkClient.connectionStatus.value == NetworkClient.ConnectionStatus.CONNECTED) {
+            pcConnectionPreparing = true
+            requestPhoneCapability()
+        }
+    }
+
+    private fun sendPCLease(generation: Long) {
+        if (!pcForeground || NetworkClient.outputMode != NetworkClient.OutputMode.WINDOWS || !phoneActivationGate.active) return
+        val ticket = outputSafetyEpoch.nextTicket()
+        val route = captureOutputRoute()
+        // Release All advances the input generation but must not silently stop a live lease.
+        val current = { generation == pcLease.generation && pcForeground && phoneActivationGate.active &&
+            NetworkClient.outputMode == NetworkClient.OutputMode.WINDOWS &&
+            NetworkClient.connectionStatus.value == NetworkClient.ConnectionStatus.CONNECTED &&
+            socket === route.socket && serverAddress == route.address && serverPort == route.port && playerRole == route.player }
+        NetworkClient.requestPhoneFrame(PhoneReceiverLease.command(ticket.sessionId, ticket.sequence),
+            PhoneReceiverLease.acknowledgement(ticket.sessionId, ticket.sequence), current) { confirmed ->
+            if (!current()) return@requestPhoneFrame
+            val initial = pcLease.preparing
+            when (pcLease.complete(generation, confirmed)) {
+                PhoneReceiverLease.Result.CONFIRMED -> {
+                    pcProtectionRequired = true
+                    pcConnectionPreparing = false
+                    NetworkClient.clearPCReceiverWarning()
+                    if (initial) resendCameraFollowState()
+                    pcLeaseRenewal = Runnable {
+                        pcLeaseRenewal = null
+                        pcLease.renew()?.let(::sendPCLease)
+                    }.also { mainHandler.postDelayed(it, PhoneReceiverLease.RENEW_MILLISECONDS) }
+                }
+                PhoneReceiverLease.Result.LEGACY_RECEIVER -> {
+                    if (pcProtectionRequired) { NetworkClient.pcReceiverLeaseLost(); return@requestPhoneFrame }
+                    pcConnectionPreparing = false
+                    NetworkClient.reportUnprotectedPCReceiver(capabilityConfirmed = true)
+                    resendCameraFollowState()
+                }
+                PhoneReceiverLease.Result.LOST -> NetworkClient.pcReceiverLeaseLost()
+                PhoneReceiverLease.Result.IGNORED -> Unit
+            }
+        }
+    }
+
+    private fun sendPhonePacket(packet: PhoneOutputPacket) {
+        if (localSelected) {
+            NetworkClient.acceptLocalPhonePacket(packet)
+            return
+        }
+        if (packet.cleanup) _scopedCleanupConfirmed.value = null
+        val epoch = outputSafetyEpoch.nextTicket()
+        val destination = serverAddress
+        val port = serverPort
+        val role = playerRole
+        val guard = { floatingSupported && !useCbv0 && outputSafetyEpoch.isCurrent(epoch) &&
+            destination == serverAddress && port == serverPort && role == playerRole && packet.isCurrent() }
+        if (!guard()) { packet.onConfirmed(false); return }
+        scope.launch {
+            if (!guard()) { mainHandler.post { packet.onConfirmed(false) }; return@launch }
+            NetworkClient.requestPhoneFrame("${packet.player}:${packet.command}", packet.acknowledgement, guard) { okay ->
+                packet.onConfirmed(okay)
+            }
+        }
+    }
+
+    private val cameraFollowStateLock = Any()
+    @Volatile private var cameraFollowEnabled = false
+    private var cameraFollowStrength = 100f
+    private var cameraFollowPreferences: SharedPreferences? = null
+    private val manualRightStickOwners = mutableSetOf<Any>()
+    private val mouseCameraFollowOwners = mutableSetOf<Any>()
+    data class LocalCameraSettings(val enabled: Boolean, val strengthPercent: Double,
+                                   val manualRightContact: Boolean, val mouseSuppressed: Boolean)
+    internal fun localCameraSettings(): LocalCameraSettings = synchronized(cameraFollowStateLock) {
+        LocalCameraSettings(cameraFollowEnabled, cameraFollowStrength.toDouble(),
+            manualRightStickOwners.isNotEmpty(), mouseCameraFollowOwners.isNotEmpty())
+    }
+    internal fun clearLocalCameraInputs() = synchronized(cameraFollowStateLock) {
+        cameraFollowEnabled = false
+        manualRightStickOwners.clear(); mouseCameraFollowOwners.clear()
+    }
+
+    private fun cameraFollowEffective() = cameraFollowEnabled && manualRightStickOwners.isEmpty() && mouseCameraFollowOwners.isEmpty()
+
+    private fun sendEffectiveCameraFollow(enabled: Boolean) {
+        if (localSelected) { NetworkClient.requestPracticeCameraRefresh(); return }
+        if (floatingSupported && !useCbv0) {
+            val player = if (playerRole == NetworkClient.PlayerRole.PLAYER1) "player1" else "player2"
+            phoneCoordinator.sendState("$player|CAMERA|ENABLED", "CAMERA_FOLLOW:${if (enabled) 1 else 0}", player)
+        } else sendCommand("CAMERA_FOLLOW:${if (enabled) 1 else 0}")
+    }
+
+    fun setMouseCameraSuppression(owner: Any, active: Boolean) {
+        val change = synchronized(cameraFollowStateLock) {
+            val before = cameraFollowEffective()
+            if (active) mouseCameraFollowOwners.add(owner) else mouseCameraFollowOwners.remove(owner)
+            cameraFollowEffective().takeIf { before != it }
+        }
+        change?.let(::sendEffectiveCameraFollow)
+    }
+
+    // Key state tracking for reliable directional commands
+    private val activeKeys = ConcurrentHashMap<String, Boolean>()
+    private var keyResendRunnable: Runnable? = null
+    private val keyResendInterval = 100L // milliseconds
+    private var isKeySyncActive = false
+
+    /**
+     * Configure socket for minimal latency
+     */
+    private fun setupLowLatencySocket(socket: DatagramSocket) {
+        try {
+            // Set minimal buffer sizes
+            socket.sendBufferSize = 1024
+            socket.receiveBufferSize = 1024
+
+            // Set traffic class for low latency if on newer Android versions
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                socket.trafficClass = 0x10  // IPTOS_LOWDELAY
+            }
+
+            Log.d(TAG, "Applied low-latency socket configuration")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to apply low-latency socket config: ${e.message}")
+        }
+    }
+
+    /**
+     * Initialize the UDP client with server details
+     */
+    fun initialize(host: String, port: Int = DEFAULT_PORT) {
+        close()
+        serverPort = port
+        val generation = ++initializationGeneration
+        if (localSelected) return
+        scope.launch {
+            var prepared: DatagramSocket? = null
+            try {
+                val address = InetAddress.getByName(host)
+                prepared = DatagramSocket().apply { setupLowLatencySocket(this); soTimeout = 1000 }
+                val newSocket = prepared
+                mainHandler.post {
+                    synchronized(this@UdpClient) {
+                        if (generation != initializationGeneration || localSelected) {
+                            newSocket.close()
+                            return@post
+                        }
+                        serverAddress = address; serverPort = port; socket = newSocket
+                        isInitialized = true
+                        startKeyStateSync()
+                        resendCameraFollowState()
+                        requestPhoneCapability()
+                    }
+                }
+            } catch (e: Exception) {
+                prepared?.close()
+                mainHandler.post {
+                    if (generation == initializationGeneration && !localSelected) {
+                        Log.e(TAG, "Failed to initialize UDP client: ${e.message}", e)
+                        isInitialized = false
+                    }
+                }
+            }
+        }
+    }
+
+    fun sendScroll(deltaY: Float) {
+        if (localSelected) { localDirectScope()?.sendScroll(deltaY); return }
+        val ticket = outputSafetyEpoch.nextTicket()
+        val route = captureOutputRoute()
+        val socket = route.socket
+        val serverAddress = route.address
+        val serverPort = route.port
+        val playerRole = route.player
+        val useCbv0 = route.consoleBridge
+        val command = "SCROLL:${"%.2f".format(deltaY)}"
+        if (!isInitialized || socket == null || serverAddress == null) {
+            if (ticketIsCurrent(ticket, route)) {
+                NetworkClient.sendGuarded(if (useCbv0) command else outputSafetyEpoch.wrapOutput(ticket, command)) { ticketIsCurrent(ticket, route) }
+            }
+            return
+        }
+
+        scope.launch {
+            if (!ticketIsCurrent(ticket, route)) return@launch
+            val prefix = if (playerRole == NetworkClient.PlayerRole.PLAYER1) "player1:" else "player2:"
+            val wireCommand = if (useCbv0) command else outputSafetyEpoch.wrapOutput(ticket, command)
+            val msgStr = "$prefix$wireCommand"
+            socket?.send(DatagramPacket(msgStr.toByteArray(), msgStr.length, serverAddress, serverPort))
+        }
+    }
+
+    /**
+     * Send a command via UDP
+     */
+    fun sendCommand(command: String) {
+        if (localSelected) { sendLocalCommand(command); return }
+        if (isPageTransportCommand(command)) {
+            Log.w(TAG, "Blocked Android-local page command from receiver transport")
+            return
+        }
+        val ticket = outputSafetyEpoch.nextTicket()
+        val route = captureOutputRoute()
+        val socket = route.socket
+        val serverAddress = route.address
+        val serverPort = route.port
+        val playerRole = route.player
+        val useCbv0 = route.consoleBridge
+        if (!isInitialized || socket == null || serverAddress == null) {
+            if (ticketIsCurrent(ticket, route)) {
+                NetworkClient.sendGuarded(if (useCbv0) command else outputSafetyEpoch.wrapOutput(ticket, command)) { ticketIsCurrent(ticket, route) }
+            }
+            return
+        }
+
+        scope.launch {
+            try {
+                if (!ticketIsCurrent(ticket, route)) return@launch
+                val playerPrefix = if (playerRole == NetworkClient.PlayerRole.PLAYER1) "player1:" else "player2:"
+
+                if (useCbv0) {
+                    // Try CBv0 first (frame goes to :9010; player prefix added by the gateway)
+                    val frame = CbProtocol.encode(command)
+                    if (frame != null) {
+                        val packet = DatagramPacket(frame, frame.size, serverAddress, if (useCbv0) CB_PORT else serverPort)
+                        socket?.send(packet)
+                        return@launch
+                    }
+                    // If this command isn't supported by CBv0 yet, fall through to legacy text.
+                }
+
+                // Legacy text path (direct to :9001) — includes player prefix
+                // Preserve unsupported legacy ConsoleBridge tokens exactly. The Python
+                // receiver gets the ordered envelope used by RELEASE_ALL's stale barrier.
+                val wireCommand = if (useCbv0) command else outputSafetyEpoch.wrapOutput(ticket, command)
+                val message = "$playerPrefix$wireCommand"
+                val buffer = message.toByteArray()
+                val packet = DatagramPacket(buffer, buffer.size, serverAddress, serverPort)
+                socket?.send(packet)
+            } catch (e: Exception) {
+                if (Math.random() < 0.01) { // avoid log spam
+                    Log.e(TAG, "Error sending UDP command: ${e.message}")
+                }
+                // Try TCP as last resort
+                if (ticketIsCurrent(ticket, route)) {
+                    val fallback = if (useCbv0) command else outputSafetyEpoch.wrapOutput(ticket, command)
+                    NetworkClient.sendGuarded(fallback) { ticketIsCurrent(ticket, route) }
+                }
+            }
+        }
+    }
+
+    /** Invalidate queued sends and stop Android's keyboard keep-alive before local cleanup. */
+    fun prepareReleaseAll() {
+        NetworkClient.releaseLocalOutput()
+        outputSafetyEpoch.invalidateQueuedSends()
+        phoneCoordinator.invalidateAll()
+        stopKeyStateSync()
+        activeKeys.clear()
+    }
+
+    /**
+     * Send one idempotent release barrier with bounded retries through NetworkClient so
+     * its listening socket can receive the acknowledgement.
+     */
+    fun sendReleaseAll(onAcknowledged: (Boolean) -> Unit): ReleaseDelivery {
+        if (localSelected) {
+            if (NetworkClient.outputMode == NetworkClient.OutputMode.PRACTICE) {
+                mainHandler.post { onAcknowledged(true) }
+                return ReleaseDelivery.ACK_PENDING
+            }
+            // STOP is best effort; do not label an unobserved physical release as acknowledged.
+            return ReleaseDelivery.RECEIVER_UNAVAILABLE
+        }
+        if (useCbv0) return ReleaseDelivery.CONSOLEBRIDGE_UNAVAILABLE
+        if (NetworkClient.connectionStatus.value != NetworkClient.ConnectionStatus.CONNECTED) {
+            return ReleaseDelivery.RECEIVER_UNAVAILABLE
+        }
+
+        val ticket = outputSafetyEpoch.nextTicket()
+        val command = outputSafetyEpoch.releaseAllCommand(ticket)
+        val acknowledgement = outputSafetyEpoch.releaseAllAcknowledgement(ticket)
+        // A receiver rejects leases older than this release barrier. Retire a pending
+        // renewal now, and wait for release confirmation before renewing: a lease must
+        // never overtake a lost release and keep the previous held input alive.
+        val renewal = if (NetworkClient.outputMode == NetworkClient.OutputMode.WINDOWS && pcForeground &&
+            phoneActivationGate.active && (pcLease.phase == PhoneReceiverLease.Phase.ACTIVE || pcLease.preparing)) {
+            pcLeaseRenewal?.let(mainHandler::removeCallbacks); pcLeaseRenewal = null
+            pcConnectionPreparing = true
+            pcLease.begin()
+        } else null
+        NetworkClient.requestReleaseAll(command, acknowledgement) { confirmed ->
+            if (renewal != null && renewal == pcLease.generation && pcForeground && phoneActivationGate.active) {
+                if (confirmed) sendPCLease(renewal) else NetworkClient.pcReceiverLeaseLost()
+            }
+            onAcknowledged(confirmed)
+        }
+        return ReleaseDelivery.ACK_PENDING
+    }
+
+    fun initializeCameraFollowPreferences(preferences: SharedPreferences) {
+        synchronized(cameraFollowStateLock) {
+            cameraFollowPreferences = preferences
+            cameraFollowStrength = cameraFollowStrengthPercent(
+                preferences.getFloat("camera_follow_strength_percent", 100f)
+            )
+        }
+    }
+
+    fun setCameraFollowStrength(percent: Float) {
+        synchronized(cameraFollowStateLock) {
+            cameraFollowStrength = cameraFollowStrengthPercent(percent)
+            cameraFollowPreferences?.edit()
+                ?.putFloat("camera_follow_strength_percent", cameraFollowStrength)?.apply()
+        }
+        resendCameraFollowStrength()
+    }
+
+    private fun resendCameraFollowStrength() {
+        if (localSelected) { NetworkClient.requestPracticeCameraRefresh(); return }
+        if (useCbv0) return
+        val ticket = outputSafetyEpoch.nextTicket()
+        val route = captureOutputRoute()
+        val socket = route.socket
+        val serverAddress = route.address
+        val serverPort = route.port
+        val playerRole = route.player
+        val strength = synchronized(cameraFollowStateLock) { cameraFollowStrength }
+        val command = cameraFollowStrengthCommand(ticket.sessionId, ticket.sequence, strength)
+        if (!isInitialized || socket == null || serverAddress == null) {
+            if (ticketIsCurrent(ticket, route)) NetworkClient.sendGuarded(command) { ticketIsCurrent(ticket, route) }
+            return
+        }
+        scope.launch {
+            if (!ticketIsCurrent(ticket, route)) return@launch
+            try {
+                val prefix = if (playerRole == NetworkClient.PlayerRole.PLAYER1) "player1:" else "player2:"
+                val buffer = "$prefix$command".toByteArray()
+                socket?.send(DatagramPacket(buffer, buffer.size, serverAddress, serverPort))
+            } catch (e: Exception) {
+                if (ticketIsCurrent(ticket, route)) NetworkClient.sendGuarded(command) { ticketIsCurrent(ticket, route) }
+            }
+        }
+    }
+
+    fun toggleCameraFollow(): Boolean {
+        if (NetworkClient.outputMode == NetworkClient.OutputMode.SCX2) return false
+        val (enabled, effectiveEnabled) = synchronized(cameraFollowStateLock) {
+            cameraFollowEnabled = !cameraFollowEnabled
+            cameraFollowEnabled to cameraFollowEffective()
+        }
+        sendEffectiveCameraFollow(effectiveEnabled)
+        return enabled
+    }
+
+    fun setCameraFollowEnabled(enabled: Boolean) {
+        if (NetworkClient.outputMode == NetworkClient.OutputMode.SCX2) return
+        val effectiveEnabled = synchronized(cameraFollowStateLock) {
+            cameraFollowEnabled = enabled
+            cameraFollowEffective()
+        }
+        sendEffectiveCameraFollow(effectiveEnabled)
+    }
+
+    fun resendCameraFollowState() {
+        resendCameraFollowStrength()
+        val enabled = synchronized(cameraFollowStateLock) {
+            cameraFollowEffective()
+        }
+        sendEffectiveCameraFollow(enabled)
+    }
+
+    /**
+     * Temporarily suppress receiver-generated Camera Follow for the full lifetime of a real
+     * manual Right Stick gesture, including neutral/dead-zone positions.
+     */
+    fun setManualRightStickActive(owner: Any, active: Boolean) {
+        val effectiveChange = synchronized(cameraFollowStateLock) {
+            val wasEnabled = cameraFollowEffective()
+            if (active) manualRightStickOwners.add(owner) else manualRightStickOwners.remove(owner)
+            val isEnabled = cameraFollowEffective()
+            if (wasEnabled == isEnabled) null else isEnabled
+        }
+        effectiveChange?.let(::sendEffectiveCameraFollow)
+    }
+
+    // -------------------------------------------------------------------
+    //   TOUCHPAD (NEW ‑ relative Δ packets)
+    // -------------------------------------------------------------------
+
+
+    /**
+     * Send a directional key command with reliable delivery
+     * Use this for WASD or similar directional controls
+     */
+    fun sendKeyCommand(key: String, isPressed: Boolean) {
+        if (localSelected) { localDirectScope()?.sendKey(key, isPressed); return }
+        if (isPageTransportCommand(key)) {
+            Log.w(TAG, "Blocked Android-local page command from keyboard transport")
+            return
+        }
+        if (isPressed) {
+            // Add to active keys
+            activeKeys[key] = true
+
+            // Send immediately (normal way)
+            val command = "KEY_DOWN:$key"
+            sendCommand(command)
+
+            // Ensure key state sync is running
+            ensureKeyStateSyncActive()
+        } else {
+            // Remove from active keys
+            activeKeys.remove(key)
+
+            // Send key up command
+            val command = "KEY_UP:$key"
+            sendCommand(command)
+        }
+    }
+
+    /**
+     * Ensures the key state sync mechanism is active if needed
+     */
+    private fun ensureKeyStateSyncActive() {
+        if (!isKeySyncActive && activeKeys.isNotEmpty()) {
+            startKeyStateSync()
+        }
+    }
+
+    /**
+     * Start periodic sync of active keys to ensure they stay pressed
+     */
+    private fun startKeyStateSync() {
+        // Clear any existing runnable
+        stopKeyStateSync()
+
+        // Mark as active
+        isKeySyncActive = true
+
+        // Create new key sync runnable
+        keyResendRunnable = object : Runnable {
+            override fun run() {
+                // Only continue if we have active keys and are initialized
+                if (activeKeys.isNotEmpty() && isInitialized) {
+                    // Resend all active keys
+                    for (key in activeKeys.keys) {
+                        val syncCommand = "KEY_SYNC:$key"
+                        sendCommand(syncCommand)
+                    }
+
+                    // Schedule next sync
+                    mainHandler.postDelayed(this, keyResendInterval)
+                } else {
+                    // No active keys, can stop syncing
+                    isKeySyncActive = false
+                }
+            }
+        }
+
+        // Start the sync cycle
+        keyResendRunnable?.let { mainHandler.post(it) }
+
+        Log.d(TAG, "Key state sync started")
+    }
+
+    /**
+     * Stop key state sync mechanism
+     */
+    private fun stopKeyStateSync() {
+        keyResendRunnable?.let { mainHandler.removeCallbacks(it) }
+        keyResendRunnable = null
+        isKeySyncActive = false
+    }
+
+    /**
+     * Send position data via UDP for lowest latency
+     */
+    fun sendPosition(x: Float, y: Float) {
+        if (localSelected) return
+        val ticket = outputSafetyEpoch.nextTicket()
+        val route = captureOutputRoute()
+        val socket = route.socket
+        val serverAddress = route.address
+        val serverPort = route.port
+        val playerRole = route.player
+        val useCbv0 = route.consoleBridge
+        val command = "POS:${"%.2f".format(x)},${"%.2f".format(y)}"
+        if (!isInitialized || socket == null || serverAddress == null) {
+            if (ticketIsCurrent(ticket, route)) {
+                NetworkClient.sendGuarded(if (useCbv0) command else outputSafetyEpoch.wrapOutput(ticket, command)) { ticketIsCurrent(ticket, route) }
+            }
+            return
+        }
+
+        scope.launch {
+            try {
+                if (!ticketIsCurrent(ticket, route)) return@launch
+                // Create message with player prefix for server routing
+                val playerPrefix = if (playerRole == NetworkClient.PlayerRole.PLAYER1) "player1:" else "player2:"
+                val position = "POS:${"%.1f".format(x)},${"%.1f".format(y)}"
+                val wireCommand = if (useCbv0) position else outputSafetyEpoch.wrapOutput(ticket, position)
+                val message = "$playerPrefix$wireCommand"
+                val buffer = message.toByteArray()
+
+                // Create and send packet
+                val packet = DatagramPacket(buffer, buffer.size, serverAddress, serverPort)
+                socket?.send(packet)
+            } catch (e: Exception) {
+                // Only log occasionally to avoid overwhelming logs
+                if (Math.random() < 0.01) {
+                    Log.e(TAG, "Error sending UDP position: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Primary method used by the touchpad: send *deltas* (dx, dy).
+     * When CBv0 is enabled, we encode to TYPE_MOUSE_DELTA and send to :9010.
+     * Otherwise, we send the legacy text "playerX:DELTA:x,y" to :9001.
+     */
+    fun sendTouchpadDelta(dx: Float, dy: Float) = sendMouseDelta(dx, dy, gameMouse = false)
+
+    /** New PC receiver backend; ConsoleBridge continues sending its existing HID deltas. */
+    fun sendGameMouseDelta(dx: Float, dy: Float) = sendMouseDelta(dx, dy, gameMouse = true)
+
+    private fun sendMouseDelta(dx: Float, dy: Float, gameMouse: Boolean) {
+        if (localSelected) { localDirectScope()?.sendMouseDelta(dx, dy, gameMouse); return }
+        val ticket = outputSafetyEpoch.nextTicket()
+        val route = captureOutputRoute()
+        val socket = route.socket
+        val serverAddress = route.address
+        val serverPort = route.port
+        val playerRole = route.player
+        val useCbv0 = route.consoleBridge
+        val command = mouseDeltaCommand(dx, dy, gameMouse, useCbv0)
+        // Build the common player prefix for legacy path
+        val playerPrefix = if (playerRole == NetworkClient.PlayerRole.PLAYER1) "player1:" else "player2:"
+
+        // If UDP not ready, fall back to TCP (legacy text)
+        if (!isInitialized || socket == null || serverAddress == null) {
+            if (ticketIsCurrent(ticket, route)) {
+                NetworkClient.sendGuarded(if (useCbv0) command else outputSafetyEpoch.wrapOutput(ticket, command)) { ticketIsCurrent(ticket, route) }
+            }
+            return
+        }
+
+        scope.launch {
+            try {
+                if (!ticketIsCurrent(ticket, route)) return@launch
+                if (useCbv0) {
+                    // Encode as CBv0 (TYPE_MOUSE_DELTA) and send to gateway port (:9010)
+                    val frame = CbProtocol.encode("DELTA:${"%.3f".format(dx)},${"%.3f".format(dy)}")
+                    if (frame != null) {
+                        val packet = DatagramPacket(frame, frame.size, serverAddress, if (useCbv0) CB_PORT else serverPort)
+                        socket?.send(packet)
+                        return@launch
+                    }
+                    // If for some reason encoding isn't supported, fall through to legacy
+                }
+
+                // Legacy text path (direct to :9001) — includes player prefix
+                val wireCommand = if (useCbv0) command else outputSafetyEpoch.wrapOutput(ticket, command)
+                val msgStr = "$playerPrefix$wireCommand"
+                val msg = msgStr.toByteArray()
+                socket?.send(DatagramPacket(msg, msg.size, serverAddress, serverPort))
+            } catch (e: Exception) {
+                if (Math.random() < 0.01) Log.e(TAG, "UDP delta error: ${e.message}")
+                // Last resort: TCP legacy
+                if (ticketIsCurrent(ticket, route)) {
+                    val fallback = if (useCbv0) command else outputSafetyEpoch.wrapOutput(ticket, command)
+                    NetworkClient.sendGuarded(fallback) { ticketIsCurrent(ticket, route) }
+                }
+            }
+        }
+    }
+
+    // Back-compat shim (some callers still use the old name)
+    fun sendTouchpadPosition(x: Float, y: Float) = sendTouchpadDelta(x, y)
+
+    private fun normalizeStickName(raw: String): String {
+        val s = raw.trim()
+        val u = s.uppercase()
+
+        // Common aliases → canonical
+        if (u == "STICK" || u == "L" || u == "LS" || u == "LEFT")  return "STICK_L"
+        if (u == "R" || u == "RS" || u == "RIGHT")                 return "STICK_R"
+
+        // Already valid prefixes → keep
+        if (u.startsWith("STICK_") || u == "STICK_L" || u == "STICK_R" || u.startsWith("DIR_")) return u
+
+        // If someone passed a view id like "stick_169..." (or any non‑canonical token), fall back safely
+        if (u.startsWith("STICK") || u.startsWith("STK") || u.startsWith("STK_") || u.startsWith("STICK-") || u.startsWith("STICK_")) {
+            return "STICK_L"
+        }
+        if (u.startsWith("STICK") || u.startsWith("STICK_")) return "STICK_L"
+        if (u.startsWith("STICK")) return "STICK_L"
+        if (u.startsWith("STICK", ignoreCase = true)) return "STICK_L"
+
+        // Default: prefix unknown tokens as a generic stick (left by default)
+        return if (u == s) "STICK_L" else "STICK_L"
+    }
+
+
+    /**
+     * Send a stick position update
+     */
+    fun sendStickPosition(stickNameRaw: String, x: Float, y: Float, excludeFromCameraFollow: Boolean = false) {
+        if (localSelected) { localDirectScope()?.sendStick(stickNameRaw, x, y, excludeFromCameraFollow); return }
+        sendOrderedStickPosition(stickNameRaw, x, y, isMacro = false, excludeFromCameraFollow)
+    }
+
+    /** Send an explicit LS/RS directional macro without disguising it as manual RS input. */
+    fun sendStickMacroPosition(stickNameRaw: String, x: Float, y: Float, excludeFromCameraFollow: Boolean = false) {
+        if (localSelected) { localDirectScope()?.sendStickMacro(stickNameRaw, x, y, excludeFromCameraFollow); return }
+        // ConsoleBridge has one stick source and no PC-side Camera Follow arbitration.
+        // Preserve its existing binary stick behavior exactly.
+        if (useCbv0) {
+            sendStickPosition(stickNameRaw, x, y)
+            return
+        }
+        sendOrderedStickPosition(stickNameRaw, x, y, isMacro = true, excludeFromCameraFollow)
+    }
+
+    private fun sendOrderedStickPosition(
+        stickNameRaw: String,
+        x: Float,
+        y: Float,
+        isMacro: Boolean,
+        excludeFromCameraFollow: Boolean
+    ) {
+        val canon = normalizeStickName(stickNameRaw) // e.g., "STICK_L" or "STICK_R"
+        val ticket = outputSafetyEpoch.nextTicket()
+        val route = captureOutputRoute()
+        val socket = route.socket
+        val serverAddress = route.address
+        val serverPort = route.port
+        val playerRole = route.player
+        val useCbv0 = route.consoleBridge
+        val orderedCommand = orderedStickCommand(
+            canon, isMacro, excludeFromCameraFollow && !useCbv0,
+            ticket.sessionId, ticket.sequence, x, y
+        )
+        val consoleBridgeFallback =
+            "$canon:${"%.2f".format(x)},${"%.2f".format(y)}"
+
+        // If UDP is not ready, retain ordering metadata for Python while preserving
+        // ConsoleBridge's existing legacy fallback shape.
+        if (!isInitialized || socket == null || serverAddress == null) {
+            if (ticketIsCurrent(ticket, route)) {
+                NetworkClient.sendGuarded(if (useCbv0) consoleBridgeFallback else orderedCommand) { ticketIsCurrent(ticket, route) }
+            }
+            return
+        }
+
+        scope.launch {
+            try {
+                if (!ticketIsCurrent(ticket, route)) return@launch
+                if (useCbv0) {
+                    // Map canon → CBv0-friendly side ("LS"/"RS")
+                    val isRight = canon.contains("_R")
+                    val side = if (isRight) "RS" else "LS"
+
+                    // Build a CBv0-encodable legacy string, then encode → frame
+                    val cbCompat = "$side:${"%.2f".format(x)},${"%.2f".format(y)}"
+                    val frame = CbProtocol.encode(cbCompat)
+                    if (frame != null) {
+                        val pkt = DatagramPacket(frame, frame.size, serverAddress, if (useCbv0) CB_PORT else serverPort)
+                        socket?.send(pkt)
+                        return@launch
+                    }
+                    // If for any reason encoding returns null, fall through to legacy path below.
+                }
+
+                // Legacy text path (direct to :9001) — includes ordering metadata so the
+                // receiver can discard older coordinates that arrive after newer ones.
+                val playerPrefix = if (playerRole == NetworkClient.PlayerRole.PLAYER1) "player1:" else "player2:"
+                val message = "$playerPrefix$orderedCommand"
+                val buf = message.toByteArray()
+                socket?.send(DatagramPacket(buf, buf.size, serverAddress, serverPort))
+            } catch (e: Exception) {
+                if (Math.random() < 0.01) {
+                    Log.e(TAG, "Error sending UDP stick: ${e.message}")
+                }
+                // Last resort TCP (legacy text)
+                if (ticketIsCurrent(ticket, route)) {
+                    NetworkClient.sendGuarded(if (useCbv0) consoleBridgeFallback else orderedCommand) { ticketIsCurrent(ticket, route) }
+                }
+            }
+        }
+    }
+
+
+
+    /**
+     * Close the UDP socket
+     */
+    @Synchronized fun close() {
+        initializationGeneration++
+        NetworkClient.releaseLocalOutput()
+        outputSafetyEpoch.invalidateQueuedSends()
+        invalidatePhoneCapability()
+        // Stop key state sync
+        stopKeyStateSync()
+
+        // Clear active keys
+        activeKeys.clear()
+
+        // Close socket
+        socket?.close()
+        socket = null
+        isInitialized = false
+    }
+
+    /**
+     * Update connection settings (should be called when NetworkClient settings change)
+     */
+    fun updateSettings(host: String, port: Int = DEFAULT_PORT) {
+        if (localSelected) { serverPort = port; return }
+        // Only reinitialize if settings actually changed
+        if (host != serverAddress?.hostAddress || port != serverPort) {
+            initialize(host, port)
+        }
+    }
+}
