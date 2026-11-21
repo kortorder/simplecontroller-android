@@ -1,0 +1,254 @@
+package com.example.simplecontroller.io
+
+import android.content.Context
+import android.util.AtomicFile
+import android.util.Log
+import com.example.simplecontroller.model.ButtonAimProfile
+import com.example.simplecontroller.model.FloatingBoostProfile
+import com.example.simplecontroller.model.StickDirectionalProfile
+import com.example.simplecontroller.model.TouchAimManualProfile
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import java.io.File
+
+data class SettingsProfileOperationResult<T>(
+    val profile: T? = null,
+    val error: String? = null
+) {
+    val succeeded: Boolean get() = error == null
+}
+
+data class ProfileStoreBackupSnapshot<T>(
+    val profiles: List<T>,
+    val unreadableFileCount: Int
+)
+
+internal class AtomicNamedProfileStore<T>(
+    private val tag: String,
+    private val prefix: String,
+    private val serializer: KSerializer<T>,
+    private val idOf: (T) -> String,
+    private val nameOf: (T) -> String,
+    private val updatedAtOf: (T) -> Long,
+    private val withName: (T, String, Long) -> T,
+    private val validationError: (T) -> String?,
+    private val preflight: (JsonObject) -> Unit = {}
+) {
+    private val json = Json {
+        prettyPrint = true
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
+
+    fun list(context: Context): List<T> = backupSnapshot(context).profiles
+
+    fun backupSnapshot(context: Context): ProfileStoreBackupSnapshot<T> {
+        val files = context.filesDir.listFiles()
+            .orEmpty()
+            .map { File(it.path.removeSuffix(".bak").removeSuffix(".new")) }
+            .filter { it.name.startsWith(prefix) && it.name.endsWith(SUFFIX) }
+            .distinctBy(File::getPath)
+        val profiles = files.mapNotNull(::readFile)
+            .sortedWith(compareByDescending<T> { updatedAtOf(it) }.thenBy { idOf(it) })
+        return ProfileStoreBackupSnapshot(profiles, files.size - profiles.size)
+    }
+
+    fun save(context: Context, profile: T): SettingsProfileOperationResult<T> {
+        validationError(profile)?.let { return SettingsProfileOperationResult(error = it) }
+        val id = idOf(profile)
+        val cleanName = nameOf(profile).trim()
+        if (!isCanonicalUuid(id)) return SettingsProfileOperationResult(error = "Invalid profile identifier.")
+        if (list(context).any { idOf(it) != id && nameOf(it).equals(cleanName, ignoreCase = true) }) {
+            return SettingsProfileOperationResult(error = "A profile with that name already exists.")
+        }
+        val normalized = withName(profile, cleanName, updatedAtOf(profile))
+        return runCatching {
+            val atomic = AtomicFile(File(context.filesDir, "$prefix$id$SUFFIX"))
+            val output = atomic.startWrite()
+            try {
+                output.write(json.encodeToString(serializer, normalized).toByteArray(Charsets.UTF_8))
+                atomic.finishWrite(output)
+            } catch (failure: Throwable) {
+                atomic.failWrite(output)
+                throw failure
+            }
+            SettingsProfileOperationResult(profile = normalized)
+        }.onFailure { Log.e(tag, "Unable to save profile", it) }
+            .getOrElse { SettingsProfileOperationResult(error = "Could not save the profile.") }
+    }
+
+    fun rename(
+        context: Context,
+        profile: T,
+        newName: String,
+        nowMs: Long
+    ): SettingsProfileOperationResult<T> {
+        val clean = newName.trim()
+        if (clean.isEmpty()) return SettingsProfileOperationResult(error = "Profile name is required.")
+        return save(context, withName(profile, clean, nowMs))
+    }
+
+    fun delete(context: Context, id: String): Boolean {
+        if (!isCanonicalUuid(id)) return false
+        val file = File(context.filesDir, "$prefix$id$SUFFIX")
+        AtomicFile(file).delete()
+        return listOf(file, File(file.path + ".bak"), File(file.path + ".new")).none(File::exists)
+    }
+
+    private fun readFile(file: File): T? = runCatching {
+        val fileId = file.name.removePrefix(prefix).removeSuffix(SUFFIX)
+        if (!isCanonicalUuid(fileId)) return@runCatching null
+        val decoded = AtomicFile(file).openRead().bufferedReader(Charsets.UTF_8).use {
+            val text = it.readText()
+            val objectValue = json.parseToJsonElement(text) as? JsonObject
+                ?: error("Invalid saved settings profile.")
+            preflight(objectValue)
+            json.decodeFromString(serializer, text)
+        }
+        decoded.takeIf {
+            idOf(it) == fileId && isCanonicalUuid(idOf(it)) && validationError(it) == null
+        }
+    }.onFailure { Log.w(tag, "Skipping unreadable profile ${file.name}", it) }.getOrNull()
+
+    private companion object {
+        const val SUFFIX = ".json"
+        val UUID_PATTERN = Regex(
+            "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        )
+
+        fun isCanonicalUuid(id: String): Boolean = UUID_PATTERN.matches(id)
+    }
+}
+
+object TouchAimManualProfileStore {
+    private val store = AtomicNamedProfileStore(
+        tag = "TouchAimManualProfile",
+        prefix = "touch_aim_manual_profile_",
+        serializer = TouchAimManualProfile.serializer(),
+        idOf = TouchAimManualProfile::id,
+        nameOf = TouchAimManualProfile::name,
+        updatedAtOf = TouchAimManualProfile::updatedAtEpochMs,
+        withName = { profile, name, updated ->
+            profile.copy(name = name, updatedAtEpochMs = updated, schemaVersion = profile.requiredSchemaVersion())
+        },
+        validationError = TouchAimManualProfile::validationError,
+        preflight = { requirePayloadFeatureSchema(it, "manual TouchAim profile", TouchAimManualProfile.CURRENT_SCHEMA_VERSION,
+            TouchAimManualProfile.PAYLOAD_MODIFIERS_SCHEMA_VERSION, stageTuning = true,
+            repeatVersion = TouchAimManualProfile.REPEAT_PAYLOAD_SCHEMA_VERSION,
+            delayVersion = TouchAimManualProfile.DELAY_PAYLOAD_SCHEMA_VERSION,
+            releaseVersion = TouchAimManualProfile.RELEASE_PAYLOAD_SCHEMA_VERSION) }
+    )
+
+    fun list(context: Context): List<TouchAimManualProfile> = store.list(context)
+    fun backupSnapshot(context: Context) = store.backupSnapshot(context)
+    fun save(context: Context, profile: TouchAimManualProfile) = store.save(context, profile)
+    fun rename(context: Context, profile: TouchAimManualProfile, name: String, nowMs: Long) =
+        store.rename(context, profile, name, nowMs)
+    fun delete(context: Context, id: String): Boolean = store.delete(context, id)
+}
+
+object ButtonAimProfileStore {
+    private val store = AtomicNamedProfileStore(
+        tag = "ButtonAimProfile",
+        prefix = "button_aim_profile_",
+        serializer = ButtonAimProfile.serializer(),
+        idOf = ButtonAimProfile::id,
+        nameOf = ButtonAimProfile::name,
+        updatedAtOf = ButtonAimProfile::updatedAtEpochMs,
+        withName = { profile, name, updated ->
+            profile.copy(
+                name = name,
+                updatedAtEpochMs = updated,
+                schemaVersion = profile.requiredSchemaVersion()
+            )
+        },
+        validationError = ButtonAimProfile::validationError,
+        preflight = { requirePayloadFeatureSchema(it, "Button Aim profile", ButtonAimProfile.CURRENT_SCHEMA_VERSION,
+            ButtonAimProfile.PAYLOAD_MODIFIERS_SCHEMA_VERSION, legacyVersion = ButtonAimProfile.LEGACY_SCHEMA_VERSION,
+            repeatVersion = ButtonAimProfile.REPEAT_PAYLOAD_SCHEMA_VERSION,
+            delayVersion = ButtonAimProfile.DELAY_PAYLOAD_SCHEMA_VERSION,
+            releaseVersion = ButtonAimProfile.RELEASE_PAYLOAD_SCHEMA_VERSION) }
+    )
+
+    fun list(context: Context): List<ButtonAimProfile> = store.list(context)
+    fun backupSnapshot(context: Context) = store.backupSnapshot(context)
+    fun save(context: Context, profile: ButtonAimProfile) = store.save(context, profile)
+    fun rename(context: Context, profile: ButtonAimProfile, name: String, nowMs: Long) =
+        store.rename(context, profile, name, nowMs)
+    fun delete(context: Context, id: String): Boolean = store.delete(context, id)
+}
+
+object StickDirectionalProfileStore {
+    private val store = AtomicNamedProfileStore(
+        tag = "StickDirectionalProfile",
+        prefix = "stick_directional_profile_",
+        serializer = StickDirectionalProfile.serializer(),
+        idOf = StickDirectionalProfile::id,
+        nameOf = StickDirectionalProfile::name,
+        updatedAtOf = StickDirectionalProfile::updatedAtEpochMs,
+        withName = { profile, name, updated ->
+            profile.copy(name = name, updatedAtEpochMs = updated, schemaVersion = profile.requiredSchemaVersion())
+        },
+        validationError = StickDirectionalProfile::validationError,
+        preflight = { requirePayloadFeatureSchema(it, "directional profile", StickDirectionalProfile.CURRENT_SCHEMA_VERSION,
+            StickDirectionalProfile.PAYLOAD_MODIFIERS_SCHEMA_VERSION, legacyVersion = StickDirectionalProfile.LEGACY_SCHEMA_VERSION,
+            repeatVersion = StickDirectionalProfile.REPEAT_PAYLOAD_SCHEMA_VERSION,
+            delayVersion = StickDirectionalProfile.DELAY_PAYLOAD_SCHEMA_VERSION,
+            releaseVersion = StickDirectionalProfile.RELEASE_PAYLOAD_SCHEMA_VERSION) }
+    )
+
+    fun list(context: Context): List<StickDirectionalProfile> = store.list(context)
+    fun backupSnapshot(context: Context) = store.backupSnapshot(context)
+    fun save(context: Context, profile: StickDirectionalProfile) = store.save(context, profile)
+    fun rename(context: Context, profile: StickDirectionalProfile, name: String, nowMs: Long) =
+        store.rename(context, profile, name, nowMs)
+    fun delete(context: Context, id: String): Boolean = store.delete(context, id)
+}
+
+object FloatingBoostProfileStore {
+    private val store = AtomicNamedProfileStore(
+        tag = "FloatingBoostProfile",
+        prefix = "floating_boost_profile_",
+        serializer = FloatingBoostProfile.serializer(),
+        idOf = FloatingBoostProfile::id,
+        nameOf = FloatingBoostProfile::name,
+        updatedAtOf = FloatingBoostProfile::updatedAtEpochMs,
+        withName = { profile, name, updated -> profile.copy(name = name, updatedAtEpochMs = updated) },
+        validationError = FloatingBoostProfile::validationError,
+        preflight = { value -> requireSupportedFloatingBoostSchema(value) }
+    )
+
+    fun list(context: Context): List<FloatingBoostProfile> = store.list(context)
+    fun backupSnapshot(context: Context) = store.backupSnapshot(context)
+    fun save(context: Context, profile: FloatingBoostProfile) = store.save(context, profile)
+    fun rename(context: Context, profile: FloatingBoostProfile, name: String, nowMs: Long) =
+        store.rename(context, profile, name, nowMs)
+    fun delete(context: Context, id: String): Boolean = store.delete(context, id)
+}
+
+/** Run before typed decode so a future preset shape cannot be silently discarded. */
+fun requireSupportedFloatingBoostSchema(value: JsonObject) {
+    requirePayloadFeatureSchema(value, "boost profile", FloatingBoostProfile.CURRENT_SCHEMA_VERSION,
+        FloatingBoostProfile.PAYLOAD_MODIFIERS_SCHEMA_VERSION, repeatVersion = FloatingBoostProfile.REPEAT_PAYLOAD_SCHEMA_VERSION,
+        delayVersion = FloatingBoostProfile.DELAY_PAYLOAD_SCHEMA_VERSION,
+        releaseVersion = FloatingBoostProfile.RELEASE_PAYLOAD_SCHEMA_VERSION)
+    val version = value["schemaVersion"]?.jsonPrimitive?.intOrNull ?: 1
+    require(version in 1..FloatingBoostProfile.CURRENT_SCHEMA_VERSION) {
+        "Boost profile version $version is newer than supported version ${FloatingBoostProfile.CURRENT_SCHEMA_VERSION} or invalid."
+    }
+    require(version >= FloatingBoostProfile.DIRECT_TOUCH_DELAY_SCHEMA_VERSION || !boostPairHasDirectTouchDelayOption(value)) {
+        "The saved direct-touch boost delay option requires boost profile version ${FloatingBoostProfile.DIRECT_TOUCH_DELAY_SCHEMA_VERSION}."
+    }
+    val actions = value["ringAimActions"] as? JsonObject
+    val hasNewOption = (actions?.get("knobActions") as? JsonArray).orEmpty().any { fire ->
+        (fire as? JsonObject)?.let(::ringFireHasExtendedOptions) == true
+    }
+    require(version >= FloatingBoostProfile.RING_OPTIONS_SCHEMA_VERSION || !hasNewOption) {
+        "The saved ring actions require boost profile version ${FloatingBoostProfile.RING_OPTIONS_SCHEMA_VERSION}."
+    }
+}
