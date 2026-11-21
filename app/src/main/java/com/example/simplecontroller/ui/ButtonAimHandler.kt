@@ -1,0 +1,1119 @@
+package com.example.simplecontroller.ui
+
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
+import com.example.simplecontroller.model.ButtonAimDpadOrigin
+import com.example.simplecontroller.model.ButtonAimOutput
+import com.example.simplecontroller.model.ButtonAimPayloadTiming
+import com.example.simplecontroller.model.Control
+import com.example.simplecontroller.model.TouchAimOutput
+import com.example.simplecontroller.model.PayloadModifiers
+import com.example.simplecontroller.model.PayloadCommandTiming
+
+enum class ButtonAimVisualState {
+    IDLE,
+    AIMING,
+    ARMED,
+    LATCH_READY,
+    WAITING_TO_FIRE,
+    ALTERNATE_ARMED,
+    ALTERNATE_AIMING,
+    ALTERNATE_WAITING_TO_FIRE,
+    ALTERNATE_RECOVERY,
+    ALTERNATE_RESET_READY
+}
+
+/** Button Aim gesture state plus a separate, explicit one-shot alternate phase. */
+class ButtonAimHandler(
+    private val model: Control,
+    private val aimOutput: AimOutputSession,
+    private val payloadExecutor: ButtonAimPayloadExecutor,
+    private val controlSize: () -> Pair<Float, Float>,
+    private val isLatched: () -> Boolean,
+    private val setLatched: (Boolean) -> Unit,
+    private val setPressed: (Boolean) -> Unit,
+    private val fireLegacyPayload: () -> Unit,
+    private val releaseLegacyPayload: () -> Unit,
+    private val startTurbo: () -> Unit,
+    private val stopTurbo: () -> Unit,
+    private val isGlobalHold: () -> Boolean,
+    private val isGlobalTurbo: () -> Boolean,
+    private val shouldSkipImmediateRelease: () -> Boolean,
+    touchSlopPx: Float,
+    private val vibrate: (Long) -> Unit,
+    private val onPayloadError: (String) -> Unit,
+    private val onStateChanged: () -> Unit,
+    private val onMouseAimEngaged: () -> Unit = {},
+    private val cancelLegacyPayload: () -> Unit = releaseLegacyPayload,
+    private val releaseLegacyPayloadWithoutSor: () -> Unit = releaseLegacyPayload
+) {
+    private val dpadOutput = ButtonAimDpadSession(payloadExecutor, controlSize)
+    private val deliberateSwipe = DeliberateSwipeTracker(touchSlopPx)
+    private val releaseBoundary = ButtonAimReleaseBoundaryPolicy()
+
+    private enum class GestureState {
+        IDLE,
+        BASE_IMMEDIATE_ACTIVE,
+        BASE_DELAYED_ARMED,
+        BASE_WAITING_TO_FIRE,
+        ALTERNATE_IMMEDIATE_ACTIVE,
+        ALTERNATE_DELAYED_ARMED,
+        ALTERNATE_FINITE_RELEASE,
+        WAITING_FOR_BASE_UNLATCH
+    }
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var gestureState = GestureState.IDLE
+    private var phaseState = OneShotAlternateState()
+    private var activePointerId = MotionEvent.INVALID_POINTER_ID
+    private var holdThresholdReached = false
+    private var legacyPayloadHeld = false
+    private var legacyTurboActive = false
+    private var baseLease: ButtonAimPayloadLease? = null
+    private var alternateLease: ButtonAimPayloadLease? = null
+    private var usingDpadOutput = false
+    private var gestureOwnsAimOutput = false
+    private var deferStickAimUntilSwipe = false
+    private var gestureDownX = 0f
+    private var gestureDownY = 0f
+    private var gestureDownTime = 0L
+    private var gestureAutoCenter = true
+    private var gestureAimConfig: AimOutputConfig? = null
+    private var holdThresholdRunnable: Runnable? = null
+    private var recoveryResetRunnable: Runnable? = null
+    private var delayedFireRunnable: Runnable? = null
+    private var finiteReleaseRunnable: Runnable? = null
+    private var baseUnlatchRunnable: Runnable? = null
+
+    var visualState: ButtonAimVisualState = ButtonAimVisualState.IDLE
+        private set
+
+    fun hasRuntimeState(): Boolean =
+        phaseState.phase != OneShotAlternatePhase.BASE ||
+            gestureState != GestureState.IDLE || legacyPayloadHeld || legacyTurboActive ||
+            baseLease != null || alternateLease != null ||
+            payloadExecutor.activeLeaseCount(ButtonAimPayloadOwner.BASE) != 0 ||
+            payloadExecutor.activeLeaseCount(ButtonAimPayloadOwner.ALTERNATE) != 0 ||
+            delayedFireRunnable != null ||
+            finiteReleaseRunnable != null || baseUnlatchRunnable != null ||
+            recoveryResetRunnable != null || aimOutput.isActive() || dpadOutput.isActive()
+
+    /** Retained Base may yield; live gestures and finite/post-release work remain locked. */
+    fun isReplaceableRetainedOutput(): Boolean =
+        gestureState == GestureState.IDLE && activePointerId == MotionEvent.INVALID_POINTER_ID &&
+            isLatched() && (legacyPayloadHeld || baseLease != null ||
+                payloadExecutor.activeLeaseCount(ButtonAimPayloadOwner.BASE) > 0) &&
+            alternateLease == null && delayedFireRunnable == null && finiteReleaseRunnable == null &&
+            baseUnlatchRunnable == null && holdThresholdRunnable == null && recoveryResetRunnable == null
+
+    fun runtimeLabel(): String? = if (phaseState.phase == OneShotAlternatePhase.BASE) {
+        null
+    } else {
+        model.buttonAimAlternateDisplayName.trim().ifEmpty {
+            model.buttonAimAlternatePayload.trim()
+        }
+    }
+
+    fun onTouch(event: MotionEvent) {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> startGesture(event)
+            MotionEvent.ACTION_MOVE -> updateGesture(event)
+            MotionEvent.ACTION_POINTER_UP -> {
+                if (activePointerId != MotionEvent.INVALID_POINTER_ID &&
+                    event.getPointerId(event.actionIndex) == activePointerId
+                ) {
+                    cancelUnexpectedGesture()
+                }
+            }
+            MotionEvent.ACTION_UP -> {
+                if (activePointerId == MotionEvent.INVALID_POINTER_ID) return
+                if (event.getPointerId(event.actionIndex) == activePointerId) {
+                    completeGesture(event)
+                } else {
+                    cancelUnexpectedGesture()
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                if (activePointerId != MotionEvent.INVALID_POINTER_ID) cancelUnexpectedGesture()
+            }
+        }
+    }
+
+    fun hasActiveGesture(): Boolean = activePointerId != MotionEvent.INVALID_POINTER_ID
+
+    /** Lifecycle/profile/property cleanup. Unlike an alternate touch cancel, this always resets. */
+    fun hardReset() {
+        cancelTimers()
+        stopTurbo()
+        if (legacyPayloadHeld || legacyTurboActive) {
+            cancelLegacyPayload()
+        }
+        legacyPayloadHeld = false
+        legacyTurboActive = false
+        payloadExecutor.releaseOwner(ButtonAimPayloadOwner.ALTERNATE)
+        payloadExecutor.releaseOwner(ButtonAimPayloadOwner.BASE)
+        baseLease = null
+        alternateLease = null
+        setPressed(false)
+        if (isLatched()) setLatched(false)
+        aimOutput.finish(flushMouse = false)
+        dpadOutput.finish()
+        usingDpadOutput = false
+        activePointerId = MotionEvent.INVALID_POINTER_ID
+        holdThresholdReached = false
+        gestureState = GestureState.IDLE
+        phaseState = OneShotAlternateStateMachine.reduce(
+            phaseState,
+            OneShotAlternateEvent.HARD_RESET
+        )
+        clearGestureAimTracking()
+        setVisualState(ButtonAimVisualState.IDLE)
+    }
+
+    /** Centers only retained/pending stick aim. Payload and Alternate state are untouched. */
+    fun recenterStickOutput(): Boolean = aimOutput.centerRetainedOrPending()
+
+    private fun startGesture(event: MotionEvent) {
+        when (gestureState) {
+            GestureState.BASE_WAITING_TO_FIRE -> cancelBaseGesture()
+            GestureState.ALTERNATE_FINITE_RELEASE -> finishPendingAlternateRelease()
+            GestureState.WAITING_FOR_BASE_UNLATCH -> finishPendingBaseUnlatch()
+            GestureState.IDLE -> Unit
+            else -> cancelUnexpectedGesture()
+        }
+
+        val alternate = isAlternatePhase()
+        if (!alternate && isLatched()) {
+            setPressed(false)
+            setLatched(false)
+            if (usesPayloadExecutor()) releaseBaseOwnership() else {
+                releaseLegacyPayload()
+                legacyPayloadHeld = false
+            }
+            if (model.buttonAimHaptics) vibrate(35L)
+            setVisualState(ButtonAimVisualState.IDLE)
+            return
+        }
+
+        activePointerId = event.getPointerId(event.actionIndex)
+        releaseBoundary.begin(
+            model.buttonAimCancelOnBoundaryExit,
+            boundaryPayloadTiming(alternate),
+            model.buttonAimRearmOnBoundaryReturn
+        )
+        holdThresholdReached = false
+        setPressed(true)
+        if (if (alternate) model.buttonAimAlternateHaptics else model.buttonAimHaptics) vibrate(30L)
+
+        val x = event.getX(event.actionIndex)
+        val y = event.getY(event.actionIndex)
+        gestureDownX = x
+        gestureDownY = y
+        gestureDownTime = event.eventTime
+        deliberateSwipe.reset(x, y)
+        val selectedOutput = if (alternate) {
+            model.buttonAimAlternateOutput
+        } else {
+            model.buttonAimOutput
+        }
+        usingDpadOutput = selectedOutput == ButtonAimOutput.DPAD
+        gestureAutoCenter = if (alternate) {
+            model.buttonAimAlternateAutoCenter
+        } else {
+            model.buttonAimAutoCenter
+        }
+        gestureAimConfig = if (!usingDpadOutput) {
+            if (alternate) model.buttonAimAlternateConfig() else model.buttonAimConfig()
+        } else {
+            null
+        }
+        val stickName = gestureAimConfig?.output?.stickName()
+        val retainedByThisSurface = aimOutput.retainedStickName()
+        deferStickAimUntilSwipe = stickName != null && shouldDeferButtonAimStick(
+            gestureAutoCenter,
+            ManualStickArbiter.hasRetainedOwner(stickName) ||
+                (retainedByThisSurface != null && retainedByThisSurface != stickName)
+        )
+
+        val ownsAim = if (usingDpadOutput) {
+            dpadOutput.begin(
+                pointerId = activePointerId,
+                x = x,
+                y = y,
+                newConfig = if (alternate) {
+                    model.buttonAimAlternateDpadConfig()
+                } else {
+                    model.buttonAimDpadConfig()
+                }
+            )
+        } else if (deferStickAimUntilSwipe) {
+            true
+        } else {
+            aimOutput.begin(
+                pointerId = activePointerId,
+                x = x,
+                y = y,
+                eventTime = event.eventTime,
+                newConfig = if (alternate) {
+                    model.buttonAimAlternateConfig()
+                } else {
+                    model.buttonAimConfig()
+                }
+            ).started
+        }
+        gestureOwnsAimOutput = ownsAim && !deferStickAimUntilSwipe
+        if (gestureOwnsAimOutput && selectedOutput in setOf(ButtonAimOutput.MOUSE, ButtonAimOutput.GAME_MOUSE)) {
+            onMouseAimEngaged()
+        }
+        if (!ownsAim) {
+            cancelUnexpectedGesture()
+            return
+        }
+
+        // A fixed control-center origin makes ACTION_DOWN meaningful immediately.
+        val initialOutputSucceeded = if (deferStickAimUntilSwipe) {
+            true
+        } else if (usingDpadOutput) {
+            val origin = if (alternate) {
+                model.buttonAimAlternateDpadOrigin
+            } else {
+                model.buttonAimDpadOrigin
+            }
+            origin != ButtonAimDpadOrigin.CONTROL_CENTER ||
+                dpadOutput.update(activePointerId, x, y)
+        } else {
+            val aimConfig = if (alternate) {
+                model.buttonAimAlternateConfig()
+            } else {
+                model.buttonAimConfig()
+            }
+            aimConfig.originMode != AimOriginMode.CONTROL_CENTER ||
+                aimConfig.output.stickName() == null ||
+                aimOutput.update(activePointerId, x, y, event.eventTime, forceSend = true)
+        }
+        if (!initialOutputSucceeded) {
+            cancelUnexpectedGesture()
+            return
+        }
+
+        if (alternate) startAlternateGesture() else startBaseGesture()
+        observeReleaseBoundary(event, event.actionIndex)
+    }
+
+    private fun startBaseGesture() {
+        if (PayloadModifiers.hasModifiers(model.payload)) {
+            gestureState = GestureState.BASE_IMMEDIATE_ACTIVE
+            setVisualState(ButtonAimVisualState.AIMING)
+            if (isGlobalHold() && !model.holdToggle) setLatched(true)
+            if (isGlobalTurbo() && model.buttonAimPayloadTiming == ButtonAimPayloadTiming.IMMEDIATE) {
+                startTurbo()
+                legacyTurboActive = true
+                legacyPayloadHeld = true
+                return
+            }
+            when (val result = payloadExecutor.activate(
+                ButtonAimPayloadOwner.BASE, model.payload,
+                if (isLatched()) ButtonAimPulseMode.REPEAT else ButtonAimPulseMode.ONCE,
+                defaultTiming = if (model.buttonAimPayloadTiming == ButtonAimPayloadTiming.SEND_ON_RELEASE)
+                    PayloadCommandTiming.SEND_ON_RELEASE else PayloadCommandTiming.IMMEDIATE,
+                defaultReleaseDelayMs = model.buttonAimReleaseDelayMs,
+                preserveAuthoredPulseOnRelease = true
+            )) {
+                is ButtonAimPayloadActivationResult.Activated -> baseLease = result.lease
+                is ButtonAimPayloadActivationResult.Invalid -> { onPayloadError(result.reason); hardReset(); return }
+                ButtonAimPayloadActivationResult.ReleaseAll -> { hardReset(); return }
+            }
+            if (model.holdToggle) scheduleHoldThreshold(latchImmediately = true)
+            return
+        }
+        if (model.buttonAimPayloadTiming == ButtonAimPayloadTiming.IMMEDIATE) {
+            gestureState = GestureState.BASE_IMMEDIATE_ACTIVE
+            setVisualState(ButtonAimVisualState.AIMING)
+            if (isGlobalTurbo()) {
+                startTurbo()
+                legacyTurboActive = true
+                legacyPayloadHeld = true
+            } else if (usesPayloadExecutor()) {
+                if (model.buttonDirectional.enabled && model.payload.isBlank()) return
+                if (isGlobalHold() && !model.holdToggle) setLatched(true)
+                val pulseMode = if (isLatched()) ButtonAimPulseMode.REPEAT else ButtonAimPulseMode.ONCE
+                when (val result = payloadExecutor.activate(
+                    ButtonAimPayloadOwner.BASE,
+                    model.payload,
+                    pulseMode
+                )) {
+                    is ButtonAimPayloadActivationResult.Activated -> baseLease = result.lease
+                    ButtonAimPayloadActivationResult.ReleaseAll -> {
+                        hardReset()
+                        return
+                    }
+                    is ButtonAimPayloadActivationResult.Invalid -> {
+                        onPayloadError(result.reason)
+                        hardReset()
+                        return
+                    }
+                }
+                if (model.holdToggle) scheduleHoldThreshold(latchImmediately = true)
+            } else {
+                if (isGlobalHold() && !model.holdToggle) setLatched(true)
+                fireLegacyPayload()
+                legacyPayloadHeld = true
+                if (model.holdToggle) scheduleHoldThreshold(latchImmediately = true)
+            }
+        } else {
+            // Turbo is deliberately ignored for delayed Button Aim payloads.
+            gestureState = GestureState.BASE_DELAYED_ARMED
+            setVisualState(ButtonAimVisualState.ARMED)
+            if (model.holdToggle) scheduleHoldThreshold(latchImmediately = false)
+        }
+    }
+
+    private fun startAlternateGesture() {
+        scheduleAlternateResetThreshold()
+
+        if (PayloadModifiers.hasModifiers(model.buttonAimAlternatePayload)) {
+            gestureState = GestureState.ALTERNATE_IMMEDIATE_ACTIVE
+            when (val result = payloadExecutor.activate(
+                ButtonAimPayloadOwner.ALTERNATE, model.buttonAimAlternatePayload,
+                defaultTiming = if (model.buttonAimAlternatePayloadTiming == ButtonAimPayloadTiming.SEND_ON_RELEASE)
+                    PayloadCommandTiming.SEND_ON_RELEASE else PayloadCommandTiming.IMMEDIATE
+            )) {
+                is ButtonAimPayloadActivationResult.Activated -> alternateLease = result.lease
+                is ButtonAimPayloadActivationResult.Invalid -> { onPayloadError(result.reason); hardReset(); return }
+                ButtonAimPayloadActivationResult.ReleaseAll -> { hardReset(); return }
+            }
+            updateAlternateVisual(active = true)
+            return
+        }
+
+        if (model.buttonAimAlternatePayloadTiming == ButtonAimPayloadTiming.IMMEDIATE) {
+            gestureState = GestureState.ALTERNATE_IMMEDIATE_ACTIVE
+            when (val result = payloadExecutor.activate(
+                ButtonAimPayloadOwner.ALTERNATE,
+                model.buttonAimAlternatePayload
+            )) {
+                is ButtonAimPayloadActivationResult.Activated -> alternateLease = result.lease
+                ButtonAimPayloadActivationResult.ReleaseAll -> {
+                    hardReset()
+                    return
+                }
+                is ButtonAimPayloadActivationResult.Invalid -> {
+                    onPayloadError(result.reason)
+                    hardReset()
+                    return
+                }
+            }
+            updateAlternateVisual(active = true)
+        } else {
+            gestureState = GestureState.ALTERNATE_DELAYED_ARMED
+            updateAlternateVisual(waitingToFire = true)
+        }
+    }
+
+    private fun updateGesture(event: MotionEvent) {
+        if (gestureState == GestureState.IDLE ||
+            gestureState == GestureState.BASE_WAITING_TO_FIRE ||
+            gestureState == GestureState.ALTERNATE_FINITE_RELEASE ||
+            gestureState == GestureState.WAITING_FOR_BASE_UNLATCH
+        ) return
+
+        val pointerIndex = event.findPointerIndex(activePointerId)
+        if (pointerIndex < 0) {
+            cancelUnexpectedGesture()
+            return
+        }
+        val x = event.getX(pointerIndex)
+        val y = event.getY(pointerIndex)
+        observeReleaseBoundary(event, pointerIndex)
+        if (deferStickAimUntilSwipe && !gestureOwnsAimOutput) {
+            if (!deliberateSwipe.update(x, y)) return
+            val config = gestureAimConfig ?: return
+            val result = aimOutput.begin(
+                pointerId = activePointerId,
+                x = gestureDownX,
+                y = gestureDownY,
+                eventTime = gestureDownTime,
+                newConfig = config,
+                allowRetainedTakeover = true
+            )
+            if (!result.started) return
+            gestureOwnsAimOutput = true
+            if (!aimOutput.update(activePointerId, x, y, event.eventTime, forceSend = true)) {
+                gestureOwnsAimOutput = false
+            }
+            return
+        }
+        if (!gestureOwnsAimOutput && !usingDpadOutput) return
+        if (!updateActiveAimOutput(
+                activePointerId,
+                x,
+                y,
+                event.eventTime
+            )) cancelUnexpectedGesture()
+    }
+
+    private fun completeGesture(event: MotionEvent) {
+        val pointerIndex = event.findPointerIndex(activePointerId)
+        if (pointerIndex < 0) {
+            cancelUnexpectedGesture()
+            return
+        }
+
+        observeReleaseBoundary(event, pointerIndex)
+        if (usingDpadOutput || gestureOwnsAimOutput) {
+            updateActiveAimOutput(
+                activePointerId,
+                event.getX(pointerIndex),
+                event.getY(pointerIndex),
+                event.eventTime,
+                forceSend = true
+            )
+        }
+        cancelHoldThreshold()
+        cancelRecoveryResetThreshold()
+        setPressed(false)
+
+        if (releaseBoundary.canceled) {
+            completeBoundaryCanceledGesture()
+            return
+        }
+        when (gestureState) {
+            GestureState.BASE_IMMEDIATE_ACTIVE -> completeImmediateBase()
+            GestureState.BASE_DELAYED_ARMED -> completeDelayedBase()
+            GestureState.ALTERNATE_IMMEDIATE_ACTIVE -> completeImmediateAlternate()
+            GestureState.ALTERNATE_DELAYED_ARMED -> completeDelayedAlternate()
+            GestureState.IDLE,
+            GestureState.BASE_WAITING_TO_FIRE,
+            GestureState.ALTERNATE_FINITE_RELEASE,
+            GestureState.WAITING_FOR_BASE_UNLATCH -> cancelUnexpectedGesture()
+        }
+    }
+
+    private fun observeReleaseBoundary(event: MotionEvent, pointerIndex: Int) {
+        val (width, height) = controlSize()
+        // A coalesced move can leave and re-enter before its current sample.
+        for (historyIndex in 0 until event.historySize) {
+            observeReleaseBoundarySample(
+                event.getHistoricalX(pointerIndex, historyIndex),
+                event.getHistoricalY(pointerIndex, historyIndex), width, height
+            )
+        }
+        observeReleaseBoundarySample(event.getX(pointerIndex), event.getY(pointerIndex), width, height)
+    }
+
+    private fun observeReleaseBoundarySample(x: Float, y: Float, width: Float, height: Float) {
+        val wasCanceled = releaseBoundary.canceled
+        releaseBoundary.observe(x, y, width, height)
+        if (!wasCanceled && releaseBoundary.canceled) {
+            cancelHoldThreshold()
+            cancelRecoveryResetThreshold()
+            holdThresholdReached = false
+            if (isAlternatePhase()) reducePhase(OneShotAlternateEvent.CANCELED_RESET)
+            setVisualState(if (isAlternatePhase()) {
+                ButtonAimVisualState.ALTERNATE_AIMING
+            } else ButtonAimVisualState.AIMING)
+        } else if (wasCanceled && !releaseBoundary.canceled) {
+            when (gestureState) {
+                GestureState.BASE_DELAYED_ARMED -> {
+                    if (model.holdToggle) scheduleHoldThreshold(latchImmediately = false)
+                    setVisualState(ButtonAimVisualState.ARMED)
+                }
+                GestureState.ALTERNATE_DELAYED_ARMED -> {
+                    scheduleAlternateResetThreshold()
+                    updateAlternateVisual(waitingToFire = true)
+                }
+                else -> Unit
+            }
+        }
+    }
+
+    private fun completeBoundaryCanceledGesture() {
+        val alternate = isAlternatePhase()
+        if (alternate && PayloadModifiers.hasModifiers(model.buttonAimAlternatePayload)) {
+            payloadExecutor.releaseNormally(alternateLease, suppressSendOnRelease = true)
+            alternateLease = null
+        } else if (!alternate && PayloadModifiers.hasModifiers(model.payload)) {
+            if (isLatched()) payloadExecutor.suppressSendOnRelease(baseLease)
+            else {
+                payloadExecutor.releaseNormally(baseLease, suppressSendOnRelease = true)
+                baseLease = null
+            }
+            if (legacyTurboActive || legacyPayloadHeld) {
+                stopTurbo()
+                releaseLegacyPayloadWithoutSor()
+            }
+            legacyTurboActive = false
+            legacyPayloadHeld = false
+        }
+        // Keep ordinary centering/retention and pointer ownership independent of payload cancellation.
+        finishOrdinaryAimOutput()
+        resetGestureOnly(preservePresentation = true)
+        reducePhase(if (alternate) {
+            if (phaseState.phase == OneShotAlternatePhase.ALTERNATE_RECOVERY) {
+                OneShotAlternateEvent.CANCELED_RESET
+            } else OneShotAlternateEvent.ALTERNATE_CANCELLATION
+        } else OneShotAlternateEvent.BASE_CANCELLATION)
+        if (alternate && model.buttonAimAlternateHaptics) vibrate(120L)
+        updateIdleVisualForPhase()
+    }
+
+    private fun completeImmediateBase() {
+        stopTurbo()
+        if (legacyTurboActive) {
+            if (!isLatched() && (!shouldSkipImmediateRelease() || usesPayloadExecutor())) {
+                // One-shot cannot leave a legacy pulse timer outside its ownership model.
+                releaseLegacyPayload()
+            }
+            legacyTurboActive = false
+            legacyPayloadHeld = false
+        } else if (usesPayloadExecutor()) {
+            if (!isLatched() && (!shouldSkipImmediateRelease() || PayloadModifiers.hasModifiers(model.payload))) {
+                payloadExecutor.releaseNormally(baseLease)
+                baseLease = null
+            }
+        } else if (!isLatched()) {
+            if (!shouldSkipImmediateRelease()) releaseLegacyPayload()
+            legacyPayloadHeld = false
+        }
+
+        finishOrdinaryAimOutput()
+        usingDpadOutput = false
+        resetGestureOnly()
+        if (model.payload.isNotBlank()) armAlternateAfterSuccessfulBase()
+    }
+
+    private fun completeDelayedBase() {
+        val latchOnFire = isGlobalHold() || (model.holdToggle && holdThresholdReached)
+        val delayMs = model.buttonAimReleaseDelayMs.coerceAtLeast(0L)
+        if (delayMs == 0L) {
+            fireDelayedBase(latchOnFire)
+            finishOrdinaryAimOutput()
+            usingDpadOutput = false
+            resetGestureOnly(preservePresentation = true)
+        } else {
+            activePointerId = MotionEvent.INVALID_POINTER_ID
+            if (usingDpadOutput) {
+                dpadOutput.detachPointerKeepingOutput()
+            } else if (gestureOwnsAimOutput) {
+                aimOutput.detachPointerKeepingOutput()
+            }
+            gestureState = GestureState.BASE_WAITING_TO_FIRE
+            setVisualState(ButtonAimVisualState.WAITING_TO_FIRE)
+            delayedFireRunnable = Runnable {
+                delayedFireRunnable = null
+                if (gestureState != GestureState.BASE_WAITING_TO_FIRE) return@Runnable
+                fireDelayedBase(latchOnFire)
+                finishPendingAimOutput()
+                usingDpadOutput = false
+                resetGestureOnly(preservePresentation = true)
+            }.also { handler.postDelayed(it, delayMs) }
+        }
+    }
+
+    private fun fireDelayedBase(latchOnFire: Boolean) {
+        if (model.buttonDirectional.enabled && model.payload.isBlank()) return
+        if (latchOnFire) setLatched(true)
+        if (usesPayloadExecutor()) {
+            val pulseMode = if (latchOnFire) ButtonAimPulseMode.REPEAT else ButtonAimPulseMode.ONCE
+            when (val result = payloadExecutor.activate(
+                ButtonAimPayloadOwner.BASE,
+                model.payload,
+                pulseMode
+            )) {
+                is ButtonAimPayloadActivationResult.Activated -> {
+                    baseLease = result.lease
+                    if (!latchOnFire) scheduleBaseFiniteRelease()
+                    armAlternateAfterSuccessfulBase()
+                }
+                ButtonAimPayloadActivationResult.ReleaseAll -> hardReset()
+                is ButtonAimPayloadActivationResult.Invalid -> {
+                    onPayloadError(result.reason)
+                    hardReset()
+                }
+            }
+        } else {
+            fireLegacyPayload()
+            legacyPayloadHeld = true
+            if (!latchOnFire) scheduleLegacyFiniteRelease()
+        }
+    }
+
+    private fun completeImmediateAlternate() {
+        val returnToBase = shouldReturnToBaseAfterAlternateGesture()
+        val waitForBaseUnlatch = releaseAlternateForCompletion(returnToBase)
+        finishOrdinaryAimOutput()
+        usingDpadOutput = false
+        resetGestureOnly(preservePresentation = true)
+        if (waitForBaseUnlatch) scheduleBaseUnlatch() else finishAlternatePhase(returnToBase)
+    }
+
+    private fun completeDelayedAlternate() {
+        val returnToBase = shouldReturnToBaseAfterAlternateGesture()
+        when (val result = payloadExecutor.activate(
+            ButtonAimPayloadOwner.ALTERNATE,
+            model.buttonAimAlternatePayload
+        )) {
+            is ButtonAimPayloadActivationResult.Activated -> alternateLease = result.lease
+            ButtonAimPayloadActivationResult.ReleaseAll -> {
+                hardReset()
+                return
+            }
+            is ButtonAimPayloadActivationResult.Invalid -> {
+                onPayloadError(result.reason)
+                hardReset()
+                return
+            }
+        }
+
+        // Required order: final aim, alternate press, center/retain, finite release, then base release.
+        prepareAlternateFiniteReleaseAim()
+        usingDpadOutput = false
+        activePointerId = MotionEvent.INVALID_POINTER_ID
+        holdThresholdReached = false
+        gestureState = GestureState.ALTERNATE_FINITE_RELEASE
+        updateAlternateVisual(waitingToFire = true)
+        finiteReleaseRunnable = Runnable {
+            finiteReleaseRunnable = null
+            if (gestureState != GestureState.ALTERNATE_FINITE_RELEASE) return@Runnable
+            val waitForBaseUnlatch = releaseAlternateForCompletion(returnToBase)
+            if (waitForBaseUnlatch) {
+                scheduleBaseUnlatch()
+            } else {
+                gestureState = GestureState.IDLE
+                finishAlternatePhase(returnToBase)
+                finishPendingAimOutput()
+            }
+        }.also { handler.postDelayed(it, FINITE_PRESS_DURATION_MS) }
+    }
+
+    private fun finishAlternatePhase(returnToBase: Boolean) {
+        when (phaseState.phase) {
+            OneShotAlternatePhase.ALTERNATE_ARMED -> {
+                if (returnToBase) {
+                    releaseBaseOwnership()
+                    setLatched(false)
+                }
+                reducePhase(OneShotAlternateEvent.NORMAL_ALTERNATE_COMPLETION)
+            }
+            OneShotAlternatePhase.ALTERNATE_RECOVERY -> {
+                if (returnToBase) {
+                    releaseBaseOwnership()
+                    setLatched(false)
+                    reducePhase(OneShotAlternateEvent.RECOVERY_INTENTIONAL_RELEASE)
+                } else {
+                    reducePhase(OneShotAlternateEvent.RECOVERY_SHORT_COMPLETION)
+                }
+            }
+            OneShotAlternatePhase.BASE -> Unit
+        }
+        updateIdleVisualForPhase()
+    }
+
+    private fun shouldReturnToBaseAfterAlternateGesture(): Boolean =
+        phaseState.recoveryResetArmed
+
+    private fun cancelUnexpectedGesture() {
+        if (isAlternatePhase()) cancelAlternateGestureIntoRecovery() else cancelBaseGesture()
+    }
+
+    private fun cancelBaseGesture() {
+        cancelTimers()
+        stopTurbo()
+        if (legacyPayloadHeld || legacyTurboActive) {
+            cancelLegacyPayload()
+        }
+        legacyPayloadHeld = false
+        legacyTurboActive = false
+        payloadExecutor.releaseOwner(ButtonAimPayloadOwner.BASE)
+        baseLease = null
+        setPressed(false)
+        if (isLatched()) setLatched(false)
+        aimOutput.finish(flushMouse = false)
+        dpadOutput.finish()
+        usingDpadOutput = false
+        activePointerId = MotionEvent.INVALID_POINTER_ID
+        holdThresholdReached = false
+        gestureState = GestureState.IDLE
+        reducePhase(OneShotAlternateEvent.BASE_CANCELLATION)
+        clearGestureAimTracking()
+        setVisualState(ButtonAimVisualState.IDLE)
+    }
+
+    private fun cancelAlternateGestureIntoRecovery() {
+        cancelTimers()
+        payloadExecutor.releaseOwner(ButtonAimPayloadOwner.ALTERNATE)
+        alternateLease = null
+        setPressed(false)
+        aimOutput.finish(flushMouse = false)
+        dpadOutput.finish()
+        usingDpadOutput = false
+        activePointerId = MotionEvent.INVALID_POINTER_ID
+        holdThresholdReached = false
+        gestureState = GestureState.IDLE
+        reducePhase(
+            if (phaseState.phase == OneShotAlternatePhase.ALTERNATE_RECOVERY) {
+                OneShotAlternateEvent.CANCELED_RESET
+            } else {
+                OneShotAlternateEvent.ALTERNATE_CANCELLATION
+            }
+        )
+        clearGestureAimTracking()
+        if (model.buttonAimAlternateHaptics) vibrate(120L)
+        setVisualState(ButtonAimVisualState.ALTERNATE_RECOVERY)
+    }
+
+    private fun armAlternateAfterSuccessfulBase() {
+        if (!usesOneShotExecutor()) return
+        payloadExecutor.validationError(model.buttonAimAlternatePayload)?.let { reason ->
+            onPayloadError(reason)
+            return
+        }
+        reducePhase(OneShotAlternateEvent.SUCCESSFUL_BASE_COMPLETION)
+        if (model.buttonAimAlternateHaptics) vibrate(55L)
+        updateIdleVisualForPhase()
+    }
+
+    private fun scheduleHoldThreshold(latchImmediately: Boolean) {
+        holdThresholdRunnable = Runnable {
+            holdThresholdRunnable = null
+            if (gestureState != GestureState.BASE_IMMEDIATE_ACTIVE &&
+                gestureState != GestureState.BASE_DELAYED_ARMED
+            ) return@Runnable
+            if (releaseBoundary.canceled) return@Runnable
+            holdThresholdReached = true
+            if (latchImmediately) setLatched(true)
+            if (model.buttonAimHaptics) vibrate(80L)
+            setVisualState(ButtonAimVisualState.LATCH_READY)
+        }.also { handler.postDelayed(it, model.holdDurationMs.coerceAtLeast(0L)) }
+    }
+
+    private fun scheduleAlternateResetThreshold() {
+        recoveryResetRunnable = Runnable {
+            recoveryResetRunnable = null
+            if (phaseState.phase == OneShotAlternatePhase.BASE ||
+                (gestureState != GestureState.ALTERNATE_IMMEDIATE_ACTIVE &&
+                    gestureState != GestureState.ALTERNATE_DELAYED_ARMED)
+            ) return@Runnable
+            if (releaseBoundary.canceled) return@Runnable
+            reducePhase(OneShotAlternateEvent.RECOVERY_RESET_THRESHOLD_REACHED)
+            if (model.buttonAimAlternateHaptics) vibrate(100L)
+            setVisualState(ButtonAimVisualState.ALTERNATE_RESET_READY)
+        }.also {
+            handler.postDelayed(it, model.buttonAimAlternateResetHoldDurationMs.coerceAtLeast(0L))
+        }
+    }
+
+    private fun scheduleBaseFiniteRelease() {
+        finiteReleaseRunnable = Runnable {
+            finiteReleaseRunnable = null
+            if (!isLatched()) {
+                payloadExecutor.release(baseLease)
+                baseLease = null
+            }
+        }.also { handler.postDelayed(it, FINITE_PRESS_DURATION_MS) }
+    }
+
+    private fun scheduleLegacyFiniteRelease() {
+        finiteReleaseRunnable = Runnable {
+            finiteReleaseRunnable = null
+            if (!isLatched() && legacyPayloadHeld) releaseLegacyPayload()
+            legacyPayloadHeld = false
+        }.also { handler.postDelayed(it, FINITE_PRESS_DURATION_MS) }
+    }
+
+    private fun finishPendingAlternateRelease() {
+        finiteReleaseRunnable?.let(handler::removeCallbacks)
+        finiteReleaseRunnable = null
+        if (gestureState != GestureState.ALTERNATE_FINITE_RELEASE) return
+        val returnToBase = shouldReturnToBaseAfterAlternateGesture()
+        val waitForBaseUnlatch = releaseAlternateForCompletion(returnToBase)
+        if (waitForBaseUnlatch) {
+            scheduleBaseUnlatch()
+        } else {
+            gestureState = GestureState.IDLE
+            finishAlternatePhase(returnToBase)
+            finishPendingAimOutput()
+        }
+    }
+
+    /** Returns true when a latched Base must remain held for its configured extra delay. */
+    private fun releaseAlternateForCompletion(returnToBase: Boolean): Boolean {
+        val shouldDelayBaseUnlatch = returnToBase && isLatched() &&
+            payloadExecutor.activeLeaseCount(ButtonAimPayloadOwner.BASE) > 0 &&
+            model.buttonAimAlternateBaseUnlatchDelayMs > 0L
+
+        if (shouldDelayBaseUnlatch) {
+            payloadExecutor.releaseNormally(alternateLease)
+            alternateLease = null
+            return true
+        }
+
+        if (returnToBase) {
+            // With no configured delay, release atomically to avoid briefly restoring an
+            // overlapping Base trigger/stick value between Alternate and neutral.
+            payloadExecutor.releaseNormallyTogether(alternateLease, baseLease)
+            alternateLease = null
+            baseLease = null
+        } else {
+            payloadExecutor.releaseNormally(alternateLease)
+            alternateLease = null
+        }
+        return false
+    }
+
+    private fun scheduleBaseUnlatch() {
+        gestureState = GestureState.WAITING_FOR_BASE_UNLATCH
+        setVisualState(ButtonAimVisualState.ALTERNATE_RESET_READY)
+        baseUnlatchRunnable = Runnable {
+            baseUnlatchRunnable = null
+            if (gestureState != GestureState.WAITING_FOR_BASE_UNLATCH) return@Runnable
+            gestureState = GestureState.IDLE
+            finishAlternatePhase(returnToBase = true)
+            finishPendingAimOutput()
+        }.also {
+            handler.postDelayed(it, model.buttonAimAlternateBaseUnlatchDelayMs.coerceAtLeast(0L))
+        }
+    }
+
+    private fun finishPendingBaseUnlatch() {
+        baseUnlatchRunnable?.let(handler::removeCallbacks)
+        baseUnlatchRunnable = null
+        if (gestureState != GestureState.WAITING_FOR_BASE_UNLATCH) return
+        gestureState = GestureState.IDLE
+        finishAlternatePhase(returnToBase = true)
+        finishPendingAimOutput()
+    }
+
+    private fun releaseBaseOwnership() {
+        payloadExecutor.releaseNormally(baseLease)
+        baseLease = null
+    }
+
+    private fun cancelHoldThreshold() {
+        holdThresholdRunnable?.let(handler::removeCallbacks)
+        holdThresholdRunnable = null
+    }
+
+    private fun cancelRecoveryResetThreshold() {
+        recoveryResetRunnable?.let(handler::removeCallbacks)
+        recoveryResetRunnable = null
+    }
+
+    private fun cancelTimers() {
+        holdThresholdRunnable?.let(handler::removeCallbacks)
+        recoveryResetRunnable?.let(handler::removeCallbacks)
+        delayedFireRunnable?.let(handler::removeCallbacks)
+        finiteReleaseRunnable?.let(handler::removeCallbacks)
+        baseUnlatchRunnable?.let(handler::removeCallbacks)
+        holdThresholdRunnable = null
+        recoveryResetRunnable = null
+        delayedFireRunnable = null
+        finiteReleaseRunnable = null
+        baseUnlatchRunnable = null
+    }
+
+    private fun resetGestureOnly(preservePresentation: Boolean = false) {
+        activePointerId = MotionEvent.INVALID_POINTER_ID
+        holdThresholdReached = false
+        gestureState = GestureState.IDLE
+        clearGestureAimTracking()
+        if (!preservePresentation) setVisualState(ButtonAimVisualState.IDLE)
+    }
+
+    private fun finishOrdinaryAimOutput() {
+        when {
+            usingDpadOutput -> dpadOutput.finish()
+            !gestureOwnsAimOutput -> Unit
+            gestureAimConfig?.output?.stickName() != null ->
+                aimOutput.completeGesture(gestureAutoCenter)
+            else -> aimOutput.finish(flushMouse = false)
+        }
+        usingDpadOutput = false
+    }
+
+    private fun finishPendingAimOutput() {
+        when {
+            usingDpadOutput -> dpadOutput.finish()
+            !gestureOwnsAimOutput -> Unit
+            gestureAimConfig?.output?.stickName() != null ->
+                aimOutput.completePending(gestureAutoCenter)
+            else -> aimOutput.finish(flushMouse = false)
+        }
+        usingDpadOutput = false
+    }
+
+    private fun prepareAlternateFiniteReleaseAim() {
+        when {
+            usingDpadOutput -> dpadOutput.finish()
+            !gestureOwnsAimOutput -> Unit
+            gestureAimConfig?.output?.stickName() == null -> aimOutput.finish(flushMouse = false)
+            else -> {
+                aimOutput.detachPointerKeepingOutput()
+                if (gestureAutoCenter) aimOutput.centerRetainedOrPending()
+            }
+        }
+    }
+
+    private fun clearGestureAimTracking() {
+        releaseBoundary.reset()
+        gestureOwnsAimOutput = false
+        deferStickAimUntilSwipe = false
+        gestureAimConfig = null
+        gestureAutoCenter = true
+        gestureDownX = 0f
+        gestureDownY = 0f
+        gestureDownTime = 0L
+    }
+
+    private fun updateActiveAimOutput(
+        pointerId: Int,
+        x: Float,
+        y: Float,
+        eventTime: Long,
+        forceSend: Boolean = false
+    ): Boolean = if (usingDpadOutput) {
+        dpadOutput.update(pointerId, x, y)
+    } else {
+        aimOutput.update(pointerId, x, y, eventTime, forceSend)
+    }
+
+    private fun reducePhase(event: OneShotAlternateEvent) {
+        phaseState = OneShotAlternateStateMachine.reduce(phaseState, event)
+        onStateChanged()
+    }
+
+    private fun updateIdleVisualForPhase() {
+        setVisualState(
+            when (phaseState.phase) {
+                OneShotAlternatePhase.BASE -> ButtonAimVisualState.IDLE
+                OneShotAlternatePhase.ALTERNATE_ARMED -> ButtonAimVisualState.ALTERNATE_ARMED
+                OneShotAlternatePhase.ALTERNATE_RECOVERY -> ButtonAimVisualState.ALTERNATE_RECOVERY
+            }
+        )
+    }
+
+    private fun updateAlternateVisual(active: Boolean = false, waitingToFire: Boolean = false) {
+        setVisualState(
+            when {
+                phaseState.recoveryResetArmed -> ButtonAimVisualState.ALTERNATE_RESET_READY
+                waitingToFire -> ButtonAimVisualState.ALTERNATE_WAITING_TO_FIRE
+                active -> ButtonAimVisualState.ALTERNATE_AIMING
+                phaseState.phase == OneShotAlternatePhase.ALTERNATE_RECOVERY ->
+                    ButtonAimVisualState.ALTERNATE_RECOVERY
+                else -> ButtonAimVisualState.ALTERNATE_ARMED
+            }
+        )
+    }
+
+    private fun setVisualState(newState: ButtonAimVisualState) {
+        visualState = newState
+        onStateChanged()
+    }
+
+    private fun isAlternatePhase(): Boolean =
+        usesOneShotExecutor() && phaseState.phase != OneShotAlternatePhase.BASE
+
+    private fun usesOneShotExecutor(): Boolean = model.buttonAimOneShotAlternateEnabled
+
+    private fun usesPayloadExecutor(): Boolean =
+        model.buttonAimOneShotAlternateEnabled || model.buttonDirectional.enabled || PayloadModifiers.hasModifiers(model.payload)
+
+    private fun boundaryPayloadTiming(alternate: Boolean): ButtonAimPayloadTiming {
+        val payload = if (alternate) model.buttonAimAlternatePayload else model.payload
+        val fallback = if (alternate) model.buttonAimAlternatePayloadTiming else model.buttonAimPayloadTiming
+        if (!PayloadModifiers.hasModifiers(payload)) return fallback
+        val commands = PayloadModifiers.parse(payload).commands
+        val hasSor = commands.any { it.timing == PayloadCommandTiming.SEND_ON_RELEASE ||
+            (it.timing == null && fallback == ButtonAimPayloadTiming.SEND_ON_RELEASE) }
+        return if (hasSor) ButtonAimPayloadTiming.SEND_ON_RELEASE else ButtonAimPayloadTiming.IMMEDIATE
+    }
+
+    companion object {
+        private const val FINITE_PRESS_DURATION_MS = 90L
+    }
+}
+
+/** Release cancellation is permanent for a gesture unless boundary-return rearming is opted in. */
+internal class ButtonAimReleaseBoundaryPolicy {
+    private var enabled = false
+    private var rearmOnReturn = false
+    var canceled = false
+        private set
+
+    fun begin(cancelOnExit: Boolean, timing: ButtonAimPayloadTiming, rearmOnReturn: Boolean = false) {
+        enabled = cancelOnExit && timing == ButtonAimPayloadTiming.SEND_ON_RELEASE
+        this.rearmOnReturn = rearmOnReturn
+        canceled = false
+    }
+
+    fun observe(x: Float, y: Float, width: Float, height: Float) {
+        if (!enabled) return
+        val inside = x >= 0f && y >= 0f && x < width && y < height &&
+            x.isFinite() && y.isFinite() && width.isFinite() && height.isFinite()
+        if (!inside) canceled = true else if (rearmOnReturn) canceled = false
+    }
+
+    fun reset() {
+        enabled = false
+        rearmOnReturn = false
+        canceled = false
+    }
+}
+
+internal fun Control.buttonAimConfig(): AimOutputConfig = AimOutputConfig(
+    output = buttonAimOutput.toTouchAimOutput(),
+    sensitivity = buttonAimSensitivity,
+    invertY = buttonAimInvertY,
+    stickProfile = buttonAimStickProfile,
+    mouseProfile = buttonAimMouseProfile,
+    stickFullDisplacementPx = buttonAimStickFullDisplacementPx,
+    stickDeadzonePx = buttonAimStickDeadzonePx,
+    originMode = if (buttonAimStickUsesTouchPosition) {
+        AimOriginMode.CONTROL_CENTER
+    } else {
+        AimOriginMode.INITIAL_TOUCH
+    },
+    sendNeutralOnBegin = !buttonAimStickUsesTouchPosition,
+    gameMouse = buttonAimOutput == ButtonAimOutput.GAME_MOUSE,
+    excludeFromCameraFollow = excludeFromCameraFollow
+)
+
+internal fun Control.buttonAimAlternateConfig(): AimOutputConfig = AimOutputConfig(
+    output = buttonAimAlternateOutput.toTouchAimOutput(),
+    sensitivity = buttonAimAlternateSensitivity,
+    invertY = buttonAimAlternateInvertY,
+    stickProfile = buttonAimAlternateStickProfile,
+    mouseProfile = buttonAimAlternateMouseProfile,
+    stickFullDisplacementPx = buttonAimAlternateStickFullDisplacementPx,
+    stickDeadzonePx = buttonAimAlternateStickDeadzonePx,
+    originMode = if (buttonAimAlternateStickUsesTouchPosition) {
+        AimOriginMode.CONTROL_CENTER
+    } else {
+        AimOriginMode.INITIAL_TOUCH
+    },
+    sendNeutralOnBegin = !buttonAimAlternateStickUsesTouchPosition,
+    gameMouse = buttonAimAlternateOutput == ButtonAimOutput.GAME_MOUSE,
+    excludeFromCameraFollow = excludeFromCameraFollow
+)
+
+private fun Control.buttonAimDpadConfig(): ButtonAimDpadConfig = ButtonAimDpadConfig(
+    mode = buttonAimDpadMode,
+    origin = buttonAimDpadOrigin,
+    activationDistancePx = buttonAimDpadActivationDistancePx,
+    owner = ButtonAimPayloadOwner.BASE
+)
+
+private fun Control.buttonAimAlternateDpadConfig(): ButtonAimDpadConfig = ButtonAimDpadConfig(
+    mode = buttonAimAlternateDpadMode,
+    origin = buttonAimAlternateDpadOrigin,
+    activationDistancePx = buttonAimAlternateDpadActivationDistancePx,
+    owner = ButtonAimPayloadOwner.ALTERNATE
+)
+
+private fun ButtonAimOutput.toTouchAimOutput(): TouchAimOutput = when (this) {
+    ButtonAimOutput.MOUSE, ButtonAimOutput.GAME_MOUSE -> TouchAimOutput.MOUSE
+    ButtonAimOutput.RIGHT_STICK -> TouchAimOutput.RIGHT_STICK
+    ButtonAimOutput.LEFT_STICK -> TouchAimOutput.LEFT_STICK
+    ButtonAimOutput.DPAD -> error("D-pad output uses ButtonAimDpadSession")
+}

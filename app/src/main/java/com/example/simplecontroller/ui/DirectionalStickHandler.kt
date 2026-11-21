@@ -1,0 +1,350 @@
+package com.example.simplecontroller.ui
+
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import android.view.MotionEvent
+import com.example.simplecontroller.model.Control
+import com.example.simplecontroller.model.ControlType
+import com.example.simplecontroller.model.StickDirection
+import com.example.simplecontroller.model.directionalPayload
+import com.example.simplecontroller.model.directionalStage
+import com.example.simplecontroller.net.UdpClient
+import com.example.simplecontroller.net.PhoneOutputScope
+import kotlin.math.abs
+
+/**
+ * Handles directional stick behavior for controls.
+ * Manages directional command sending based on stick position.
+ */
+class DirectionalStickHandler(
+    private val model: Control,
+    private val uiHandler: Handler? = Handler(Looper.getMainLooper()),
+    payloadExecutor: ButtonAimPayloadExecutor,
+    private val scopeProvider: () -> PhoneOutputScope? = { null }
+) {
+    private val executor = payloadExecutor
+    fun hasRuntimeState(): Boolean = commandState.hasRuntimeState() || executor.activeLeaseCount() > 0 || continuousDirectional != null
+    private val commandState = DirectionalCommandStateController(payloadExecutor, uiHandler?.let(::HandlerButtonAimPayloadScheduler)) { reason ->
+        Log.w("DirectionalStick", "Ignored invalid held payload: $reason")
+    }
+
+    private fun sendOwnedCommand(command: String) {
+        val scope = scopeProvider()
+        if (scope != null) scope.sendCommand(command)
+        else if (!UdpClient.floatingSupported) UdpClient.sendCommand(command)
+    }
+
+    private fun sendOwnedPosition(name: String, x: Float, y: Float) {
+        val scope = scopeProvider()
+        if (scope != null) scope.sendStick(name, x, y, model.excludeFromCameraFollow)
+        else if (!UdpClient.floatingSupported) UdpClient.sendStickPosition(name, x, y, model.excludeFromCameraFollow)
+    }
+    // Track which directional commands are being continuously sent
+    private var continuousDirectional: Runnable? = null
+    private var sendingUp = false
+    private var sendingDown = false
+    private var sendingLeft = false
+    private var sendingRight = false
+    private var sendingUpBoost = false
+    private var sendingDownBoost = false
+    private var sendingLeftBoost = false
+    private var sendingRightBoost = false
+    private var sendingUpSuperBoost = false
+    private var sendingDownSuperBoost = false
+    private var sendingLeftSuperBoost = false
+    private var sendingRightSuperBoost = false
+
+    // Store the last stick position for continuous sending
+    private var lastStickX = 0f
+    private var lastStickY = 0f
+
+    // Use UDP for analog position updates (not directional commands)
+    private var useUdp = true
+
+    // Faster continuous sending interval
+    private val continuousSendIntervalMs = 50L // 50ms ~20Hz (was 100ms)
+
+    /**
+     * Handle Stick+ mode - sends directional button commands alongside analog stick output
+     * @param x Normalized X position (-1 to 1)
+     * @param y Normalized Y position (-1 to 1)
+     * @param action The motion event action (e.g., ACTION_UP, ACTION_MOVE)
+     */
+    fun handleStickPlusMode(x: Float, y: Float, action: Int) {
+        // Store last position
+        lastStickX = x
+        lastStickY = y
+
+        if (action == MotionEvent.ACTION_CANCEL) {
+            commandState.clear()
+            return
+        }
+        val interval = model.stickPlusRepeatIntervalMilliseconds.takeIf {
+            model.stickPlusMode && !model.directionalMode
+        }
+        commandState.reconcile(desiredPayloads(x, y), interval, stageKeys(x, y))
+    }
+
+    /**
+     * Handle directional stick inputs, sending button commands instead of analog values
+     * @param x Normalized X position (-1 to 1)
+     * @param y Normalized Y position (-1 to 1)
+     * @param action The motion event action (e.g., ACTION_UP, ACTION_MOVE)
+     */
+    fun handleDirectionalStick(
+        x: Float,
+        y: Float,
+        action: Int,
+        analogX: Float = x,
+        analogY: Float = y
+    ) {
+        // Store last position
+        lastStickX = x
+        lastStickY = y
+
+        // Directional/WASD mode owns only authored stage actions. It must never emit an
+        // implicit analog position; analogX/Y remain in the signature for existing callers.
+
+        if (action == MotionEvent.ACTION_CANCEL) {
+            commandState.clear()
+            return
+        }
+        commandState.reconcile(desiredPayloads(x, y))
+    }
+
+    private fun desiredPayloads(x: Float, y: Float): Map<DirectionalCommandSlot, String> {
+        val desired = linkedMapOf<DirectionalCommandSlot, String>()
+        val absX = abs(x)
+        val absY = abs(y)
+
+        if (y < -DIRECTION_DEAD_ZONE) {
+            desired[DirectionalCommandSlot.UP] = model.directionalPayload(
+                StickDirection.UP, absY
+            )
+        } else if (y > DIRECTION_DEAD_ZONE) {
+            desired[DirectionalCommandSlot.DOWN] = model.directionalPayload(
+                StickDirection.DOWN, absY
+            )
+        }
+
+        if (x < -DIRECTION_DEAD_ZONE) {
+            desired[DirectionalCommandSlot.LEFT] = model.directionalPayload(
+                StickDirection.LEFT, absX
+            )
+        } else if (x > DIRECTION_DEAD_ZONE) {
+            desired[DirectionalCommandSlot.RIGHT] = model.directionalPayload(
+                StickDirection.RIGHT, absX
+            )
+        }
+
+        return desired
+    }
+
+    private fun stageKeys(x: Float, y: Float): Map<DirectionalCommandSlot, String> {
+        val stages = linkedMapOf<DirectionalCommandSlot, String>()
+        fun add(slot: DirectionalCommandSlot, direction: StickDirection, amount: Float) {
+            stages[slot] = model.directionalStage(direction, amount).name
+        }
+        if (y < -DIRECTION_DEAD_ZONE) add(DirectionalCommandSlot.UP, StickDirection.UP, abs(y))
+        else if (y > DIRECTION_DEAD_ZONE) add(DirectionalCommandSlot.DOWN, StickDirection.DOWN, abs(y))
+        if (x < -DIRECTION_DEAD_ZONE) add(DirectionalCommandSlot.LEFT, StickDirection.LEFT, abs(x))
+        else if (x > DIRECTION_DEAD_ZONE) add(DirectionalCommandSlot.RIGHT, StickDirection.RIGHT, abs(x))
+        return stages
+    }
+
+    /**
+     * Start continuous sending of directional commands
+     */
+    private fun startDirectionalSending(up: Boolean, down: Boolean, left: Boolean, right: Boolean) {
+        // Stop any existing continuous sender
+        stopDirectionalCommands()
+
+        // Store the directions we're sending
+        sendingUp = up
+        sendingDown = down
+        sendingLeft = left
+        sendingRight = right
+
+        // Determine if we're using boost commands
+        val absX = abs(lastStickX)
+        val absY = abs(lastStickY)
+
+        // Normal boost level
+        sendingUpBoost = up && absY > model.boostThreshold && absY <= model.superBoostThreshold
+        sendingDownBoost = down && absY > model.boostThreshold && absY <= model.superBoostThreshold
+        sendingLeftBoost = left && absX > model.boostThreshold && absX <= model.superBoostThreshold
+        sendingRightBoost = right && absX > model.boostThreshold && absX <= model.superBoostThreshold
+
+        // Super boost level
+        sendingUpSuperBoost = up && absY > model.superBoostThreshold
+        sendingDownSuperBoost = down && absY > model.superBoostThreshold
+        sendingLeftSuperBoost = left && absX > model.superBoostThreshold
+        sendingRightSuperBoost = right && absX > model.superBoostThreshold
+
+        if (!model.autoCenter && (up || down || left || right)) {
+            // Create a continuous sender for directional commands
+            continuousDirectional = object : Runnable {
+                override fun run() {
+                    if (sendingUp) {
+                        val command = if (sendingUpSuperBoost) model.upSuperBoostCommand
+                        else if (sendingUpBoost) model.upBoostCommand
+                        else model.upCommand
+                        val intensity = abs(lastStickY)
+                        command.split(',', ' ')
+                            .filter { it.isNotBlank() }
+                            .forEach { cmd ->
+                                val trimmedCmd = cmd.trim()
+                                // Skip sending if the command is just a number (likely a mistake)
+                                if (trimmedCmd.matches(Regex("^\\d+\\.?\\d*$"))) {
+                                    return@forEach
+                                }
+                                
+                                val finalCmd = if (trimmedCmd.matches(Regex("X360[LR]T|PS[LR]2|TRIGGER_.*"))) {
+                                    "$trimmedCmd:${"%.2f".format(intensity)}"
+                                } else {
+                                    trimmedCmd
+                                }
+                                
+                                if (useUdp) {
+                                    sendOwnedCommand(finalCmd)
+                                } else {
+                                    sendOwnedCommand(finalCmd)
+                                }
+                            }
+                    }
+
+                    if (sendingDown) {
+                        val command = if (sendingDownSuperBoost) model.downSuperBoostCommand
+                        else if (sendingDownBoost) model.downBoostCommand
+                        else model.downCommand
+                        val intensity = abs(lastStickY)
+                        command.split(',', ' ')
+                            .filter { it.isNotBlank() }
+                            .forEach { cmd ->
+                                val trimmedCmd = cmd.trim()
+                                // Skip sending if the command is just a number (likely a mistake)
+                                if (trimmedCmd.matches(Regex("^\\d+\\.?\\d*$"))) {
+                                    return@forEach
+                                }
+                                
+                                val finalCmd = if (trimmedCmd.matches(Regex("X360[LR]T|PS[LR]2|TRIGGER_.*"))) {
+                                    "$trimmedCmd:${"%.2f".format(intensity)}"
+                                } else {
+                                    trimmedCmd
+                                }
+                                
+                                if (useUdp) {
+                                    sendOwnedCommand(finalCmd)
+                                } else {
+                                    sendOwnedCommand(finalCmd)
+                                }
+                            }
+                    }
+
+                    if (sendingLeft) {
+                        val command = if (sendingLeftSuperBoost) model.leftSuperBoostCommand
+                        else if (sendingLeftBoost) model.leftBoostCommand
+                        else model.leftCommand
+                        val intensity = abs(lastStickX)
+                        command.split(',', ' ')
+                            .filter { it.isNotBlank() }
+                            .forEach { cmd ->
+                                val trimmedCmd = cmd.trim()
+                                // Skip sending if the command is just a number (likely a mistake)
+                                if (trimmedCmd.matches(Regex("^\\d+\\.?\\d*$"))) {
+                                    return@forEach
+                                }
+                                
+                                val finalCmd = if (trimmedCmd.matches(Regex("X360[LR]T|PS[LR]2|TRIGGER_.*"))) {
+                                    "$trimmedCmd:${"%.2f".format(intensity)}"
+                                } else {
+                                    trimmedCmd
+                                }
+                                
+                                if (useUdp) {
+                                    sendOwnedCommand(finalCmd)
+                                } else {
+                                    sendOwnedCommand(finalCmd)
+                                }
+                            }
+                    }
+
+                    if (sendingRight) {
+                        val command = if (sendingRightSuperBoost) model.rightSuperBoostCommand
+                        else if (sendingRightBoost) model.rightBoostCommand
+                        else model.rightCommand
+                        val intensity = abs(lastStickX)
+                        command.split(',', ' ')
+                            .filter { it.isNotBlank() }
+                            .forEach { cmd ->
+                                val trimmedCmd = cmd.trim()
+                                // Skip sending if the command is just a number (likely a mistake)
+                                if (trimmedCmd.matches(Regex("^\\d+\\.?\\d*$"))) {
+                                    return@forEach
+                                }
+                                
+                                val finalCmd = if (trimmedCmd.matches(Regex("X360[LR]T|PS[LR]2|TRIGGER_.*"))) {
+                                    "$trimmedCmd:${"%.2f".format(intensity)}"
+                                } else {
+                                    trimmedCmd
+                                }
+                                
+                                if (useUdp) {
+                                    sendOwnedCommand(finalCmd)
+                                } else {
+                                    sendOwnedCommand(finalCmd)
+                                }
+                            }
+                    }
+
+                    uiHandler?.postDelayed(this, continuousSendIntervalMs) // Send at faster rate
+                }
+            }
+
+            // Start continuous sending
+            uiHandler?.postDelayed(continuousDirectional!!, continuousSendIntervalMs)
+        }
+    }
+
+    /**
+     * Stop any continuous directional commands being sent
+     */
+    fun stopDirectionalCommands(centerOutput: Boolean = true, natural: Boolean = false) {
+        commandState.clear(natural)
+        continuousDirectional?.let { uiHandler?.removeCallbacks(it) }
+        continuousDirectional = null
+        sendingUp = false
+        sendingDown = false
+        sendingLeft = false
+        sendingRight = false
+        sendingUpBoost = false
+        sendingDownBoost = false
+        sendingLeftBoost = false
+        sendingRightBoost = false
+        sendingUpSuperBoost = false
+        sendingDownSuperBoost = false
+        sendingLeftSuperBoost = false
+        sendingRightSuperBoost = false
+
+        // Only send stop command for actual stick controls
+        if (centerOutput && (model.type == ControlType.STICK || model.type == ControlType.CURVED_STICK ||
+            model.type == ControlType.RADIAL_CURVED_STICK)) {
+            // Also send a final zero position via UDP to ensure server knows we've stopped
+            sendOwnedPosition(model.id, 0f, 0f)
+        }
+    }
+
+    // Note: We're keeping this method even though it's unused
+    // It may be useful in the future or for testing
+    /**
+     * Set whether to use UDP for commands
+     */
+    fun setUseUdp(enabled: Boolean) {
+        useUdp = enabled
+    }
+
+    private companion object {
+        const val DIRECTION_DEAD_ZONE = 0.1f
+    }
+}

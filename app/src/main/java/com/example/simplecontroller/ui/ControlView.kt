@@ -1,0 +1,1647 @@
+package com.example.simplecontroller.ui
+
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Paint.Style
+import android.os.Handler
+import android.os.Looper
+import android.os.Vibrator
+import android.os.VibrationEffect
+import android.os.Build
+import android.util.Log
+import android.view.MotionEvent
+import android.view.ViewConfiguration
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.Toast
+import androidx.core.content.ContextCompat
+import com.example.simplecontroller.MainActivity
+import com.example.simplecontroller.R
+import com.example.simplecontroller.model.Control
+import com.example.simplecontroller.model.ControlType
+import com.example.simplecontroller.model.PageAction
+import com.example.simplecontroller.model.isLocalPageAction
+import com.example.simplecontroller.model.FloatingLocalAction
+import com.example.simplecontroller.model.PayloadModifiers
+import com.example.simplecontroller.net.PhoneOutputScope
+import com.example.simplecontroller.net.PhoneOutputCoordinator
+import com.example.simplecontroller.net.UdpClient
+import kotlin.math.abs
+import kotlin.math.min
+import android.view.GestureDetector
+import android.view.GestureDetector.SimpleOnGestureListener
+
+
+/**
+ * ControlView is the primary UI component for interactive controls.
+ *
+ * This is a fully refactored version that delegates specialized behavior to
+ * helper classes for better code organization and maintainability.
+ *
+ * Each ControlView represents a single interactive control (button, stick, or touchpad)
+ * that the user can interact with in both edit and play modes.
+ */
+class ControlView(
+    context: Context,
+    val model: Control,
+    private val onPageAction: ((PageAction, String) -> Unit)? = null,
+    private val pageActionLabel: ((Control) -> String?)? = null
+) : FrameLayout(context) {
+
+    /*hold*/
+    private val holdHandler = Handler(Looper.getMainLooper())
+
+    /*mouse click lock delay*/
+    private val mouseClickHandler = Handler(Looper.getMainLooper())
+
+    private var wasJustUnlatched = false
+    private var suppressLatchReleaseSideEffect = false
+    private var pageActionGestureConsumed = false
+    private var macroPointerId = MotionEvent.INVALID_POINTER_ID
+    private var safeForSilentDetach = false
+    private var outputRoot: PhoneOutputScope? = null
+    private val outputScopeId = "control:${model.id}:${System.identityHashCode(this)}"
+    private var allowOutputScopeCreation = false
+    private val mouseSuppressionOwner = Any()
+    private var allowMouseSuppression = false
+    private var physicalGestureActive = false
+    private var basicSurfacePointerId = MotionEvent.INVALID_POINTER_ID
+    private var swipeEnteredGesture = false
+    private var swipeHandoffEnding = false
+    private var touchMaxExcursionX = 0f
+    private var touchMaxExcursionY = 0f
+    private var activationGestureConsumed = false
+    private val isFloatingRuntime: Boolean get() = tag == "floating-runtime"
+    private val canSendLegacyOutput: Boolean get() = !isFloatingRuntime && !UdpClient.floatingSupported
+    private val rejectedFloatingOutputScope by lazy {
+        // A null provider means legacy fallback to the aim/directional/continuous helpers.
+        // Keep a non-null ended handle when rejecting floated output; this private coordinator
+        // never reaches UdpClient, the receiver, or the shared cleanup status.
+        PhoneOutputCoordinator("unavailable-floating", { 0L }, { it.onConfirmed(false) })
+            .beginScope(outputScopeId, "player1").also { it.finish() }
+    }
+
+    fun refreshLegacyOutputBusy() {
+        val busy = physicalGestureActive || isPressed || isLatched || leftHeld || fingerIsDown || ownsManualStick ||
+            pendingSingleTap != null || awaitingSecondTap ||
+            continuousSender.isActive() || autoTapController?.isActive == true ||
+            (autoTapPayloadExecutor?.activeLeaseCount() ?: 0) > 0 ||
+            buttonAimHandler?.hasRuntimeState() == true || buttonDirectionalHandler?.hasRuntimeState() == true ||
+            touchAimHandler?.hasRuntimeState() == true || directionalHandler.hasRuntimeState() || uiHelper.hasPendingOutputWork()
+        UdpClient.setLegacyOutputBusy(this, !UdpClient.floatingSupported && busy)
+    }
+
+    /** Children isolate separate executors and continuous aim from ordinary Button output. */
+    fun outputScopeFor(slot: String): PhoneOutputScope? {
+        if (!UdpClient.floatingSupported || !allowOutputScopeCreation) {
+            return if (isFloatingRuntime) rejectedFloatingOutputScope else null
+        }
+        val root = outputRoot?.takeIf { it.isActive }
+            ?: UdpClient.beginOutputScope(outputScopeId).also { outputRoot = it }
+        return root.child(slot)
+    }
+
+    fun engageMouseSuppression() {
+        if (model.mouseSuppressCameraFollow && allowMouseSuppression) {
+            UdpClient.setMouseCameraSuppression(mouseSuppressionOwner, true)
+        }
+    }
+
+    fun endMouseSuppression() {
+        allowMouseSuppression = false
+        UdpClient.setMouseCameraSuppression(mouseSuppressionOwner, false)
+    }
+
+    fun sendOwnedCommand(command: String, slot: String = "ordinary", forceRelease: Boolean = false) {
+        if (command.startsWith("MOUSE_", true) && !command.endsWith("_UP", true)) engageMouseSuppression()
+        val scope = outputScopeFor(slot)
+        if (scope != null) {
+            if (forceRelease) scope.sendLegacyForceRelease(command) else scope.sendCommand(command)
+            if (slot == "ordinary") scope.setRetained(isLatched, ::releaseFloatingRuntime)
+        } else if (canSendLegacyOutput) UdpClient.sendCommand(command)
+    }
+
+    fun sendOwnedKey(key: String, pressed: Boolean, slot: String = "ordinary") {
+        val scope = outputScopeFor(slot)
+        if (scope != null) {
+            scope.sendKey(key, pressed)
+            if (slot == "ordinary") scope.setRetained(isLatched, ::releaseFloatingRuntime)
+        }
+        else if (canSendLegacyOutput) UdpClient.sendKeyCommand(key, pressed)
+    }
+
+    fun sendOwnedMacro(stickName: String, x: Float, y: Float, slot: String = "ordinary") {
+        val scope = outputScopeFor(slot)
+        if (scope != null) {
+            scope.sendStickMacro(stickName, x, y, model.excludeFromCameraFollow)
+            if (slot == "ordinary") scope.setRetained(isLatched, ::releaseFloatingRuntime)
+        }
+        else if (canSendLegacyOutput) UdpClient.sendStickMacroPosition(stickName, x, y, model.excludeFromCameraFollow)
+    }
+
+    fun sendOwnedStick(stickName: String, x: Float, y: Float, slot: String = "stick") {
+        val scope = outputScopeFor(slot)
+        val accepted = if (scope != null) scope.sendStick(stickName, x, y, model.excludeFromCameraFollow)
+        else if (canSendLegacyOutput) {
+            UdpClient.sendStickPosition(stickName, x, y, model.excludeFromCameraFollow)
+            true
+        } else false
+        if (accepted && slot == "stick" && !model.directionalMode &&
+            ManualStickArbiter.canonicalStickName(stickName) == ManualStickArbiter.canonicalStickName(model.payload)) {
+            updateStickVisual(x, y)
+        }
+    }
+
+    fun releaseFloatingRuntime() = releaseEverythingLocally()
+
+    private fun refreshOutputRetention() {
+        val root = outputRoot?.takeIf { it.isActive } ?: return
+        root.child("ordinary").setRetained(isLatched && !isPressed, ::releaseFloatingRuntime)
+        root.child("button-action").setRetained(
+            buttonAimHandler?.isReplaceableRetainedOutput() == true, ::releaseFloatingRuntime
+        )
+        root.child("directional-stick").setRetained(
+            !physicalGestureActive && directionalHandler.hasRuntimeState(), ::releaseFloatingRuntime
+        )
+    }
+
+
+    /* ───────── member variables ────────── */
+    // For dragging in edit mode
+    private var dX = 0f
+    private var dY = 0f
+
+    // State tracking
+    var isLatched = false
+        set(value) {
+            val oldValue = field
+            field = value
+
+            // If we're turning off latched mode, release any held buttons
+            if (oldValue && !value && model.type == ControlType.BUTTON &&
+                !suppressLatchReleaseSideEffect
+            ) {
+                Log.d("DEBUG_PULSE", "isLatched setter: unlatching and calling releaseLatched()")
+                uiHelper.releaseLatched()
+                // Double-check that pulse state is reset
+                uiHelper.allowPulseLoop = false
+            }
+        }
+    private var leftHeld = false           // for one-finger drag or toggle
+
+    // For touchpad tracking - improved touchpad handling
+    private var lastTouchX = 0f
+    private var lastTouchY = 0f
+    private var touchPreviousDx = 0f  // Store previous movement for smoothing
+    private var touchPreviousDy = 0f  // Store previous movement for smoothing
+    private var touchInitialized = false
+    private var touchpadSensitivity = 1.0f
+
+    // ─── Double-tap-hold lock helpers ─────────────────────────────
+    private var lastTapTime = 0L
+    private var lastDownTime = 0L
+    private var downX = 0f
+    private var downY = 0f
+    private var fingerIsDown = false
+
+    private val tapTimeoutMs = 180L             // a bit tighter for what counts as a tap
+    private val tapSlopPx = 20f                 // a bit stricter movement budget
+    private val secondTapMaxGapMs = 120L        // must tap again quickly to qualify
+    private val holdToLockMs = 380L             // must HOLD the 2nd tap a hair longer to lock
+    private val postUnlockCooldownMs = 120L     // short buffer after unlocking
+
+    // Looser thresholds for a normal single-click (UR mode)
+    private val tapTimeoutClickMs = 240L
+    private val tapSlopClickPx = 32f
+
+
+    private var secondTapHoldCheck: Runnable? = null
+    private var lastTapWasClean = false         // NEW: only a clean tap can "prime" a lock
+    private var lastUnlockTime = 0L             // NEW: prevent immediate re-lock after unlock
+    // Click-first suppression: if lock engages mid-gesture, skip click on UP
+    private var suppressNextUpClick = false
+
+    // Single-tap deferral so we can detect a second tap
+    private var awaitingSecondTap = false
+    private var pendingSingleTap: Runnable? = null
+
+    // Touchpad smoothing factors
+    private val touchSmoothingFactor = 0.5f  // 0.0 = no smoothing, 1.0 = maximum smoothing
+    private val touchMinMovement = 0.05f     // Minimum movement threshold
+    private val touchDeadzone = 0.02f        // Ignore tiny movements below this value
+
+    // Timestamp for rate limiting
+    private var lastTouchpadSendTime = 0L
+    private val touchpadSendIntervalMs = 8   // Limit send rate to reduce network spam
+
+    // Handler for UI updates
+    private val uiHandler = Handler(Looper.getMainLooper())
+
+    // Specialized handlers
+    private val uiHelper: ControlViewHelper
+    private val directionalHandler: DirectionalStickHandler
+    private val continuousSender: ContinuousSender
+    private val touchAimHandler: TouchAimHandler?
+    private val autoTapPayloadExecutor: ButtonAimPayloadExecutor?
+    private val autoTapController: ButtonAutoTapController?
+    private var autoTapLease: ButtonAimPayloadLease? = null
+    private val buttonDirectionalHandler: ButtonDirectionalGestureHandler?
+    private var retainedButtonAimStickName: String? = null
+    private val buttonAimOutput = AimOutputSession(
+        ownerToken = Any(),
+        controlSize = { width.toFloat() to height.toFloat() },
+        beforeStickAcquire = SwipeManager::stopContinuousSendingForStick,
+        onRetainedStickChanged = {
+            retainedButtonAimStickName = it
+            invalidate()
+        },
+        scopeProvider = { outputScopeFor("button-aim") }
+    )
+    private val buttonAimHandler: ButtonAimHandler?
+    private val manualStickOwnerToken = Any()
+    private var ownsManualStick = false
+    private var manualStickPointerId = MotionEvent.INVALID_POINTER_ID
+    private var manualStickReplacedRetained = false
+
+    // Output-space coordinates for analog sticks; physical travel for Directional.
+    // Runtime-only: retained position is never serialized into a profile.
+    private var stickVisualX = 0f
+    private var stickVisualY = 0f
+    internal val displayedStickPosition: Pair<Float, Float>
+        get() = stickVisualX to stickVisualY
+
+    private fun updateStickVisual(x: Float, y: Float) {
+        val nextX = if (x.isFinite()) x.coerceIn(-1f, 1f) else 0f
+        val nextY = if (y.isFinite()) y.coerceIn(-1f, 1f) else 0f
+        if (stickVisualX == nextX && stickVisualY == nextY) return
+        stickVisualX = nextX
+        stickVisualY = nextY
+        invalidate()
+    }
+
+    // Paint for drawing the control
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    // System vibrator for stronger haptic feedback
+    private val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+
+    /**
+     * Trigger strong vibration using system Vibrator service
+     */
+    private fun triggerStrongVibration(durationMs: Long = 50) {
+        try {
+            if (vibrator.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val effect = VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE)
+                    vibrator.vibrate(effect)
+                    Log.d("HAPTIC_DEBUG", "Strong vibration triggered (API >= 26): ${durationMs}ms")
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(durationMs)
+                    Log.d("HAPTIC_DEBUG", "Strong vibration triggered (API < 26): ${durationMs}ms")
+                }
+            } else {
+                Log.d("HAPTIC_DEBUG", "Device has no vibrator")
+            }
+        } catch (e: Exception) {
+            Log.e("HAPTIC_DEBUG", "Vibration failed: ${e.message}")
+        }
+    }
+
+    private fun setButtonAimLatchedState(value: Boolean) {
+        suppressLatchReleaseSideEffect = true
+        try {
+            isLatched = value
+        } finally {
+            suppressLatchReleaseSideEffect = false
+        }
+    }
+
+    /* ───────── init ───────────── */
+    init {
+        // Configure layout params
+        layoutParams = MarginLayoutParams(model.w.toInt(), model.h.toInt()).apply {
+            leftMargin = model.x.toInt()
+            topMargin = model.y.toInt()
+        }
+
+        // Configure view properties
+        setWillNotDraw(false)
+        isClickable = true
+
+        // Create helper instances
+        uiHelper = ControlViewHelper(context, model, this) {
+            (context as? MainActivity)?.removeControl(model)
+        }
+
+        autoTapPayloadExecutor = if (model.type == ControlType.BUTTON) {
+            uiHelper.createButtonAimPayloadExecutor("auto-tap")
+        } else {
+            null
+        }
+        autoTapController = autoTapPayloadExecutor?.let { executor ->
+            ButtonAutoTapController(
+                scheduler = HandlerButtonAimPayloadScheduler(),
+                pressPayload = {
+                    when (val result = executor.activate(
+                        ButtonAimPayloadOwner.BASE,
+                        model.payload,
+                        ButtonAimPulseMode.ONCE
+                    )) {
+                        is ButtonAimPayloadActivationResult.Activated -> {
+                            autoTapLease = result.lease
+                            true
+                        }
+                        ButtonAimPayloadActivationResult.ReleaseAll -> false
+                        is ButtonAimPayloadActivationResult.Invalid -> {
+                            Toast.makeText(
+                                context,
+                                "Auto-tap: ${result.reason}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            false
+                        }
+                    }
+                },
+                releasePayload = {
+                    executor.releaseNormally(autoTapLease)
+                    autoTapLease = null
+                },
+                cancelPayload = {
+                    executor.release(autoTapLease)
+                    autoTapLease = null
+                },
+                onStateChanged = {
+                    uiHelper.updateLabel()
+                    refreshLegacyOutputBusy()
+                    invalidate()
+                }
+            )
+        }
+
+        directionalHandler = DirectionalStickHandler(
+            model,
+            uiHandler,
+            uiHelper.createButtonAimPayloadExecutor("directional-stick"),
+            scopeProvider = { outputScopeFor("stick") }
+        )
+        continuousSender = ContinuousSender(model, uiHandler,
+            scopeProvider = { outputScopeFor("stick") }, onRetainedReplaced = ::releaseFloatingRuntime)
+        touchAimHandler = if (model.type == ControlType.TOUCH_AIM) {
+            TouchAimHandler(
+                model = model,
+                onStateChanged = { invalidate() },
+                controlSize = { width.toFloat() to height.toFloat() },
+                payloadExecutor = uiHelper.createButtonAimPayloadExecutor("touch-state"),
+                scopeProvider = { outputScopeFor("touch-aim") },
+                stateScopeProvider = { outputScopeFor("touch-state") },
+                onMouseAimEngaged = ::engageMouseSuppression,
+                onPayloadError = { reason ->
+                    Toast.makeText(context, "TouchAim: $reason", Toast.LENGTH_SHORT).show()
+                }
+            )
+        } else {
+            null
+        }
+        val buttonPayloadExecutor = if (model.type == ControlType.BUTTON) {
+            uiHelper.createButtonAimPayloadExecutor("button-action")
+        } else null
+        buttonAimHandler = if (model.type == ControlType.BUTTON) {
+            ButtonAimHandler(
+                model = model,
+                aimOutput = buttonAimOutput,
+                payloadExecutor = buttonPayloadExecutor!!,
+                controlSize = { width.toFloat() to height.toFloat() },
+                isLatched = { isLatched },
+                setLatched = {
+                    setButtonAimLatchedState(it)
+                    invalidate()
+                },
+                setPressed = {
+                    isPressed = it
+                    invalidate()
+                },
+                fireLegacyPayload = uiHelper::firePayload,
+                releaseLegacyPayload = uiHelper::releaseLatched,
+                cancelLegacyPayload = {
+                    uiHelper.cancelPendingActionsForReleaseAll()
+                    uiHelper.releaseLatched()
+                },
+                releaseLegacyPayloadWithoutSor = {
+                    if (isLatched) uiHelper.suppressModifiedSor()
+                    else uiHelper.releaseModifiedPayload(suppressSendOnRelease = true)
+                },
+                startTurbo = uiHelper::startRepeat,
+                stopTurbo = uiHelper::stopRepeat,
+                isGlobalHold = { GlobalSettings.globalHold },
+                isGlobalTurbo = { GlobalSettings.globalTurbo && !model.buttonDirectional.enabled },
+                shouldSkipImmediateRelease = {
+                    model.payload.contains("RT:1.0P", ignoreCase = true) ||
+                        model.payload.contains("LT:1.0P", ignoreCase = true)
+                },
+                touchSlopPx = ViewConfiguration.get(context).scaledTouchSlop.toFloat(),
+                vibrate = ::triggerStrongVibration,
+                onPayloadError = { reason ->
+                    Toast.makeText(context, "One-shot alternate: $reason", Toast.LENGTH_SHORT).show()
+                },
+                onStateChanged = { updateButtonAimPresentation() },
+                onMouseAimEngaged = ::engageMouseSuppression
+            )
+        } else {
+            null
+        }
+        buttonDirectionalHandler = buttonPayloadExecutor?.let { executor ->
+            ButtonDirectionalGestureHandler(
+                model = model,
+                executor = executor,
+                onPayloadError = { reason ->
+                    Toast.makeText(context, "Directional button: $reason", Toast.LENGTH_SHORT).show()
+                },
+                onPressedChanged = { pressed ->
+                    isPressed = pressed
+                    invalidate()
+                }
+            )
+        }
+
+        SwipeManager.registerControl(this)
+
+        // Initial UI updates
+        refreshControlLabel()
+    }
+
+    private fun refreshControlLabel() {
+        uiHelper.updateLabel(if (model.isLocalPageAction()) pageActionLabel?.invoke(model) else null)
+    }
+
+    fun refreshPageActionLabel() = refreshControlLabel()
+
+    /** Used only after centralized cleanup or while Edit Mode guarantees views are output-inert. */
+    fun markSafeForSilentDetach() {
+        safeForSilentDetach = true
+    }
+
+    private fun updateButtonAimPresentation() {
+        uiHelper.updateLabel(buttonAimHandler?.runtimeLabel())
+        refreshOutputRetention()
+        refreshLegacyOutputBusy()
+        invalidate()
+    }
+
+    // Clean up when the view is removed
+    override fun onDetachedFromWindow() {
+        if (!safeForSilentDetach) releaseEverythingLocally()
+
+        // Unregister from SwipeManager
+        SwipeManager.unregisterControl(this)
+
+        super.onDetachedFromWindow()
+    }
+
+    /** Initial hit testing follows the visible shape; captured drags may leave it. */
+    fun containsPlayPoint(x: Float, y: Float): Boolean = if (model.type == ControlType.RECENTER) {
+        ControlHitRegion.containsCenteredCircle(x, y, width.toFloat(), height.toFloat())
+    } else ControlHitRegion.contains(
+        x, y, width.toFloat(), height.toFloat(),
+        model.type == ControlType.BUTTON && model.circularButton
+    )
+
+    /** Swipe preflight never mutates output, including another surface's analog owner. */
+    fun canAcceptSwipeFrom(source: ControlView?): Boolean {
+        if (physicalGestureActive && source !== this) return false
+        val analog = !model.directionalMode && (model.type == ControlType.STICK ||
+            model.type == ControlType.CURVED_STICK || model.type == ControlType.RADIAL_CURVED_STICK)
+        return !analog || ManualStickArbiter.canAcquireAfterRelease(
+            model.payload, manualStickOwnerToken, source?.manualStickOwnerToken)
+    }
+
+    /** A slide is movement, never a newly authored touchpad tap/lock gesture. */
+    fun playSwipeTouch(event: MotionEvent, enteredBySlide: Boolean = false, handoff: Boolean = false) {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) swipeEnteredGesture = enteredBySlide
+        swipeHandoffEnding = handoff
+        try { playTouch(event) } finally {
+            swipeHandoffEnding = false
+            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                swipeEnteredGesture = false
+            }
+        }
+    }
+
+    private fun drawButtonSurface(canvas: Canvas, radius: Float) {
+        if (model.circularButton) {
+            val inset = if (paint.style == Style.STROKE) paint.strokeWidth / 2f else 0f
+            canvas.drawOval(inset, inset, width - inset, height - inset, paint)
+        } else {
+            canvas.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), radius, radius, paint)
+        }
+    }
+
+    /* ───────── drawing ────────── */
+    override fun onDraw(c: Canvas) {
+        super.onDraw(c)
+        when (model.type) {
+            ControlType.BUTTON -> {
+                val cornerRadius = min(width, height) / 3f
+                val aimState = buttonAimHandler?.visualState ?: ButtonAimVisualState.IDLE
+                val activeAimColor = when {
+                    autoTapController?.isActive == true -> Color.rgb(0, 150, 136)
+                    !model.buttonAimEnabled -> null
+                    aimState == ButtonAimVisualState.ALTERNATE_RESET_READY -> Color.rgb(46, 125, 50)
+                    aimState == ButtonAimVisualState.ALTERNATE_RECOVERY -> Color.rgb(198, 40, 40)
+                    aimState == ButtonAimVisualState.ALTERNATE_WAITING_TO_FIRE -> Color.rgb(255, 143, 0)
+                    aimState == ButtonAimVisualState.ALTERNATE_AIMING -> Color.rgb(3, 169, 244)
+                    aimState == ButtonAimVisualState.ALTERNATE_ARMED -> Color.rgb(30, 136, 229)
+                    aimState == ButtonAimVisualState.WAITING_TO_FIRE -> Color.rgb(239, 108, 0)
+                    aimState == ButtonAimVisualState.LATCH_READY -> Color.rgb(171, 71, 188)
+                    aimState == ButtonAimVisualState.ARMED -> Color.rgb(245, 166, 35)
+                    aimState == ButtonAimVisualState.AIMING -> Color.rgb(0, 150, 136)
+                    isLatched -> Color.rgb(126, 87, 194)
+                    else -> null
+                }
+
+                if (activeAimColor != null || isLatched || isPressed) {
+                    // Button Aim uses distinct colors for held/armed/latch-ready/waiting states.
+                    paint.style = Style.FILL
+                    paint.color = activeAimColor
+                        ?: ContextCompat.getColor(context, R.color.button_pressed_blue)
+                    drawButtonSurface(c, cornerRadius)
+                } else {
+                    // Transparent with blue outline when not pressed
+                    paint.style = Style.STROKE
+                    paint.strokeWidth = 4f
+                    paint.color = ContextCompat.getColor(context, R.color.button_blue)
+                    drawButtonSurface(c, cornerRadius)
+                }
+                retainedButtonAimStickName?.let { stickName ->
+                    val badgeRadius = (min(width, height) * 0.13f).coerceAtLeast(11f)
+                    val badgeX = width - badgeRadius - 6f
+                    val badgeY = badgeRadius + 6f
+                    paint.style = Style.FILL
+                    paint.color = Color.BLACK
+                    c.drawCircle(badgeX, badgeY, badgeRadius, paint)
+                    paint.style = Style.STROKE
+                    paint.strokeWidth = 3f
+                    paint.color = Color.WHITE
+                    c.drawCircle(badgeX, badgeY, badgeRadius, paint)
+                    paint.style = Style.FILL
+                    paint.color = Color.WHITE
+                    paint.textAlign = Paint.Align.CENTER
+                    paint.textSize = badgeRadius
+                    paint.isFakeBoldText = true
+                    c.drawText(if (stickName == "STICK_R") "RS" else "LS", badgeX, badgeY + badgeRadius * 0.35f, paint)
+                    paint.isFakeBoldText = false
+                    paint.textAlign = Paint.Align.LEFT
+                }
+            }
+            ControlType.RECENTER -> {
+                val radius = min(width, height) / 2f
+
+                if (isLatched || isPressed) {
+                    // Solid orange when pressed or latched
+                    paint.style = Style.FILL
+                    paint.color = ContextCompat.getColor(context, R.color.recenter_pressed_orange)
+                    c.drawCircle(width / 2f, height / 2f, radius, paint)
+                } else {
+                    // Transparent with orange outline when not pressed
+                    paint.style = Style.STROKE
+                    paint.strokeWidth = 4f
+                    paint.color = ContextCompat.getColor(context, R.color.recenter_orange)
+                    c.drawCircle(width / 2f, height / 2f, radius, paint)
+                }
+            }
+            ControlType.STICK, ControlType.CURVED_STICK, ControlType.RADIAL_CURVED_STICK -> {
+                // Background of the stick area with theme colors
+                paint.style = Style.FILL
+                paint.color = ContextCompat.getColor(context, R.color.touchpad_blue)
+                c.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+
+                // The stick itself with theme colors
+                paint.color = ContextCompat.getColor(context, R.color.stick_blue)
+                val radius = min(width, height) / 6f
+                val knobX = width / 2f + stickVisualX * (width / 2f - radius)
+                val knobY = height / 2f + stickVisualY * (height / 2f - radius)
+                c.drawCircle(knobX, knobY, radius, paint)
+            }
+            ControlType.TOUCHPAD -> {
+                // Semi-transparent touchpad area with theme colors
+                paint.style = Style.FILL
+                paint.color = ContextCompat.getColor(context, R.color.touchpad_blue)
+                c.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+            }
+            ControlType.TOUCH_AIM -> drawTouchAim(c)
+        }
+    }
+
+    private fun drawTouchAim(canvas: Canvas) {
+        val level = touchAimHandler?.currentLevel ?: TouchContactLevel.AIM_ONLY
+        val isTwoStateShooting = touchAimHandler?.isTwoStateShooting == true
+        val levelColor = if (isTwoStateShooting) Color.rgb(218, 73, 73) else when (level) {
+            TouchContactLevel.AIM_ONLY -> Color.rgb(47, 126, 150)
+            TouchContactLevel.LOW -> Color.rgb(54, 156, 112)
+            TouchContactLevel.MEDIUM -> Color.rgb(232, 169, 52)
+            TouchContactLevel.HIGH -> Color.rgb(218, 73, 73)
+        }
+
+        paint.style = Style.FILL
+        paint.color = ContextCompat.getColor(context, R.color.touchpad_blue)
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+
+        paint.style = Style.STROKE
+        paint.strokeWidth = 5f
+        paint.color = levelColor
+        canvas.drawRect(2.5f, 2.5f, width - 2.5f, height - 2.5f, paint)
+
+        val cx = width / 2f
+        val cy = height / 2f
+        val reticleRadius = min(width, height) * 0.07f
+        paint.strokeWidth = 3f
+        canvas.drawCircle(cx, cy, reticleRadius, paint)
+        canvas.drawLine(cx - reticleRadius * 1.6f, cy, cx + reticleRadius * 1.6f, cy, paint)
+        canvas.drawLine(cx, cy - reticleRadius * 1.6f, cx, cy + reticleRadius * 1.6f, paint)
+
+        paint.style = Style.FILL
+        paint.textAlign = Paint.Align.CENTER
+        paint.typeface = android.graphics.Typeface.DEFAULT_BOLD
+        paint.textSize = (min(width, height) * 0.09f).coerceIn(20f, 42f)
+        val score = touchAimHandler?.currentScore ?: 0f
+        val stateLabel = if (isTwoStateShooting) "SHOOT" else level.displayName
+        canvas.drawText("$stateLabel  ${"%.2f".format(score)}", cx, height - 14f, paint)
+        paint.textAlign = Paint.Align.LEFT
+        paint.typeface = android.graphics.Typeface.DEFAULT
+    }
+
+    private val gestureDetector = GestureDetector(context, object : SimpleOnGestureListener() {
+        override fun onLongPress(e: MotionEvent) {
+            if (GlobalSettings.editMode) {
+                showProps()
+            }
+        }
+    })
+
+    override fun onTouchEvent(e: MotionEvent): Boolean {
+        if (GlobalSettings.editMode) {
+            gestureDetector.onTouchEvent(e)  // ✅ long-press to show props
+            return editDrag(e)               // ✅ still allows drag
+        }
+
+        if (e.actionMasked == MotionEvent.ACTION_DOWN && !containsPlayPoint(e.x, e.y)) return false
+
+        // MainActivity consumes router-owned gestures before Android child dispatch.
+        // A gesture that reaches this view keeps normal capture, including when another
+        // finger began on a direct TouchAim surface outside the swipe router.
+        playTouch(e)
+        return true
+    }
+
+    /* ---------- edit mode: reposition controls ---------- */
+    private fun editDrag(e: MotionEvent): Boolean {
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                dX = e.rawX - (layoutParams as MarginLayoutParams).leftMargin
+                dY = e.rawY - (layoutParams as MarginLayoutParams).topMargin
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val lp = layoutParams as MarginLayoutParams
+                lp.leftMargin = (e.rawX - dX).toInt()
+                lp.topMargin = (e.rawY - dY).toInt()
+                val plane = parent as? ViewGroup
+                if (plane?.tag == "safe-control-plane") {
+                    lp.leftMargin = lp.leftMargin.coerceIn(0, (plane.width - width).coerceAtLeast(0))
+                    lp.topMargin = lp.topMargin.coerceIn(0, (plane.height - height).coerceAtLeast(0))
+                }
+                layoutParams = lp
+                model.x = lp.leftMargin.toFloat()
+                model.y = lp.topMargin.toFloat()
+                return true
+            }
+            else -> return false
+        }
+    }
+
+    /* ---------- play mode: interact ---------- */
+    fun playTouch(e: MotionEvent) {
+        val basicSurface = model.type == ControlType.TOUCHPAD || model.type == ControlType.STICK ||
+            model.type == ControlType.CURVED_STICK || model.type == ControlType.RADIAL_CURVED_STICK
+        if (!basicSurface) { playTouchCaptured(e); return }
+        if (e.actionMasked == MotionEvent.ACTION_CANCEL) {
+            basicSurfacePointerId = MotionEvent.INVALID_POINTER_ID
+            playTouchCaptured(e)
+            return
+        }
+        if (e.actionMasked == MotionEvent.ACTION_DOWN) {
+            if (basicSurfacePointerId != MotionEvent.INVALID_POINTER_ID) return
+            basicSurfacePointerId = e.getPointerId(e.actionIndex)
+        } else if (basicSurfacePointerId == MotionEvent.INVALID_POINTER_ID) return
+        if (e.actionMasked == MotionEvent.ACTION_POINTER_DOWN) return
+        if (e.actionMasked == MotionEvent.ACTION_POINTER_UP &&
+            e.getPointerId(e.actionIndex) != basicSurfacePointerId) return
+        val capturedPointer = basicSurfacePointerId
+        val index = e.findPointerIndex(capturedPointer)
+        if (index < 0) { releaseEverythingLocally(); return }
+        val action = if (e.actionMasked == MotionEvent.ACTION_POINTER_UP) MotionEvent.ACTION_UP else e.actionMasked
+        // Process every observed owner sample; another finger must neither steer
+        // this surface nor hide an out-and-back path from touchpad tap slop.
+        if (action == MotionEvent.ACTION_MOVE || action == MotionEvent.ACTION_UP) {
+            for (history in 0 until e.historySize) {
+                if (basicSurfacePointerId != capturedPointer) return
+                dispatchBasicSurfaceSample(e, index, MotionEvent.ACTION_MOVE, history)
+            }
+        }
+        if (basicSurfacePointerId != capturedPointer) return
+        try { dispatchBasicSurfaceSample(e, index, action, null) }
+        finally { if (action == MotionEvent.ACTION_UP) basicSurfacePointerId = MotionEvent.INVALID_POINTER_ID }
+    }
+
+    private fun dispatchBasicSurfaceSample(source: MotionEvent, index: Int, action: Int, history: Int?) {
+        val properties = MotionEvent.PointerProperties().also { source.getPointerProperties(index, it) }
+        val coordinates = MotionEvent.PointerCoords().also {
+            if (history == null) source.getPointerCoords(index, it) else source.getHistoricalPointerCoords(index, history, it)
+        }
+        val event = MotionEvent.obtain(source.downTime, history?.let(source::getHistoricalEventTime) ?: source.eventTime,
+            action, 1, arrayOf(properties), arrayOf(coordinates), source.metaState, source.buttonState,
+            source.xPrecision, source.yPrecision, source.deviceId, source.edgeFlags, source.source, source.flags)
+        try { playTouchCaptured(event) } finally { event.recycle() }
+    }
+
+    private fun playTouchCaptured(e: MotionEvent) {
+        // Cancellation is not a deliberate lift: never click, latch, start a retained
+        // sender, or execute release-shot actions after interruption.
+        if (e.actionMasked == MotionEvent.ACTION_CANCEL) {
+            releaseEverythingLocally()
+            return
+        }
+        if (activationGestureConsumed) {
+            if (e.actionMasked == MotionEvent.ACTION_UP || e.actionMasked == MotionEvent.ACTION_CANCEL) {
+                activationGestureConsumed = false
+            }
+            return
+        }
+        if (e.actionMasked == MotionEvent.ACTION_DOWN && UdpClient.activationPending && !uiHelper.isReleaseAllAction()) {
+            activationGestureConsumed = true
+            Toast.makeText(context, "Preparing scoped controls; touch again when ready.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (e.actionMasked == MotionEvent.ACTION_DOWN) {
+            physicalGestureActive = true
+            if (!UdpClient.floatingSupported) UdpClient.setLegacyOutputBusy(this, true)
+            allowOutputScopeCreation = true
+            allowMouseSuppression = true
+        }
+        try {
+        when (model.type) {
+            /* ----- BUTTON ----- */
+            ControlType.BUTTON -> {
+                if (model.floatingLocalAction != FloatingLocalAction.NONE) {
+                    when (e.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> if (!pageActionGestureConsumed && isAttachedToWindow) {
+                            pageActionGestureConsumed = true
+                            (context as? MainActivity)?.floatingAction(model.floatingLocalAction, model.floatingActionTargetId)
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> pageActionGestureConsumed = false
+                    }
+                    return
+                }
+                if (model.isLocalPageAction()) {
+                    when (e.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> {
+                            if (!pageActionGestureConsumed && isAttachedToWindow) {
+                                pageActionGestureConsumed = true
+                                onPageAction?.invoke(model.pageAction, model.pageTargetId)
+                            }
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                            pageActionGestureConsumed = false
+                    }
+                    return
+                }
+                if (model.macroModeEnabled && !uiHelper.isReleaseAllAction()) {
+                    when (e.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> {
+                            val error = uiHelper.startMacro()
+                            isPressed = error == null
+                            macroPointerId = if (error == null) e.getPointerId(0) else MotionEvent.INVALID_POINTER_ID
+                            if (error == null) triggerStrongVibration(30)
+                            else Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                        }
+                        MotionEvent.ACTION_UP -> {
+                            isPressed = false
+                            if (macroPointerId != MotionEvent.INVALID_POINTER_ID) uiHelper.releaseMacro()
+                            macroPointerId = MotionEvent.INVALID_POINTER_ID
+                        }
+                        MotionEvent.ACTION_POINTER_UP -> {
+                            if (e.getPointerId(e.actionIndex) == macroPointerId) {
+                                isPressed = false
+                                macroPointerId = MotionEvent.INVALID_POINTER_ID
+                                uiHelper.releaseMacro()
+                            }
+                        }
+                        MotionEvent.ACTION_MOVE -> {
+                            if (macroPointerId != MotionEvent.INVALID_POINTER_ID &&
+                                e.findPointerIndex(macroPointerId) < 0) {
+                                isPressed = false
+                                macroPointerId = MotionEvent.INVALID_POINTER_ID
+                                uiHelper.cancelMacro()
+                            }
+                        }
+                        MotionEvent.ACTION_CANCEL -> {
+                            isPressed = false
+                            macroPointerId = MotionEvent.INVALID_POINTER_ID
+                            uiHelper.cancelMacro()
+                        }
+                    }
+                    invalidate()
+                    return
+                }
+                if (model.buttonDirectional.enabled && !uiHelper.isReleaseAllAction()) {
+                    val aimEnabled = model.buttonAimEnabled
+                    if (aimEnabled && e.actionMasked == MotionEvent.ACTION_DOWN) {
+                        buttonAimHandler?.onTouch(e)
+                        if (buttonAimHandler?.hasActiveGesture() != true) return
+                    }
+                    buttonDirectionalHandler?.onTouch(e, baseOwnedByAim = aimEnabled)
+                    if (!aimEnabled && e.actionMasked == MotionEvent.ACTION_DOWN &&
+                        buttonDirectionalHandler?.hasRuntimeState() == true
+                    ) triggerStrongVibration(30)
+                    if (aimEnabled && e.actionMasked != MotionEvent.ACTION_DOWN) {
+                        buttonAimHandler?.onTouch(e)
+                    }
+                    return
+                }
+                if (model.buttonAimEnabled && !uiHelper.isReleaseAllAction()) {
+                    buttonAimHandler?.onTouch(e)
+                    return
+                }
+                when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    // The safety payload is an immediate action, never a hold/turbo/latch input.
+                    if (uiHelper.isReleaseAllAction()) {
+                        (context as? MainActivity)?.activateReleaseAll()
+                            ?: ReleaseAllCoordinator.releaseAll()
+                        return
+                    }
+
+                    if (model.autoTapEnabled) {
+                        autoTapUnsupportedPayloadReason(model.payload)?.let { reason ->
+                            Toast.makeText(context, reason, Toast.LENGTH_SHORT).show()
+                            return
+                        }
+                        val wasActive = autoTapController?.isActive == true
+                        val nowActive = autoTapController?.toggle(model.autoTapIntervalMs) == true
+                        isPressed = false
+                        triggerStrongVibration(
+                            when {
+                                wasActive -> 35L
+                                nowActive -> 70L
+                                else -> 35L
+                            }
+                        )
+                        invalidate()
+                        return
+                    }
+
+                    // Trigger strong vibration for button press
+                    triggerStrongVibration(30) // Short 30ms vibration
+
+                    wasJustUnlatched = false
+                    uiHelper.allowPulseLoop = true  // ✅ enable pulsing for this press
+                    // Cancel any pending long press action from before
+                    holdHandler.removeCallbacksAndMessages(null)
+
+                    // DEBUG ↓ — reflect whether we fire now or skip due to hold toggle
+                    Log.d(
+                        "DEBUG_BTN",
+                        "DOWN  ${if (model.holdToggle) "skipping immediate fire" else "firing"} ${model.payload}"
+                    )
+
+                    // If the button is already latched, a tap should unlatch it immediately
+                    if (isLatched) {
+                        isLatched = false
+                        isPressed = false
+                        wasJustUnlatched = true  // ✅ track that we just unlatched
+                        uiHelper.releaseLatched()
+                        invalidate()
+                        return
+                    }
+
+                    // Normal press path (not latched)
+                    isPressed = true  // ✅ This tracks "I'm still pressing"
+                    invalidate() // ✅ Trigger redraw immediately for visual feedback
+
+                    if (uiHelper.isCameraFollowAction()) {
+                        // This is a state toggle, not a holdable or repeatable command.
+                        uiHelper.firePayload()
+                    } else if (GlobalSettings.globalTurbo && uiHelper.canUseGlobalTurbo()) {
+                        uiHelper.startRepeat()
+                    } else {
+                        // Handle global hold mode (instant latch) for non-toggle buttons
+                        if (GlobalSettings.globalHold && !model.holdToggle) {
+                            isLatched = true
+                            invalidate()
+                        }
+
+                        // ✅ Non-hold buttons: fire immediately (single tap)
+                        if (!model.holdToggle) {
+                            uiHelper.firePayload()
+                        }
+
+                        // ✅ Hold-toggle buttons: DO NOT fire immediately; fire only when hold threshold is reached
+                        if (model.holdToggle) {
+                            holdHandler.postDelayed({
+                                if (isPressed && !wasJustUnlatched) {
+                                    isLatched = true
+                                    // Trigger longer vibration for button latch
+                                    triggerStrongVibration(80) // Longer 80ms vibration for latch
+                                    invalidate()
+                                    uiHelper.firePayload() // Fire once after latching (sends *_HOLD behavior while latched)
+                                }
+                            }, model.holdDurationMs)
+                        }
+                    }
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (uiHelper.isReleaseAllAction()) {
+                        isPressed = false
+                        invalidate()
+                        return
+                    }
+
+                    if (model.autoTapEnabled) {
+                        isPressed = false
+                        invalidate()
+                        return
+                    }
+
+                    stopRepeat()
+                    if (e.actionMasked == MotionEvent.ACTION_CANCEL && PayloadModifiers.hasModifiers(model.payload)) {
+                        uiHelper.cancelPendingActionsForReleaseAll()
+                        isPressed = false
+                        if (isLatched) isLatched = false
+                        invalidate()
+                        return
+                    }
+                    isPressed = false  // ✅ Cancel any pending delayed latch
+                    invalidate() // ✅ Trigger redraw to remove pressed visual state
+
+                    // Turbo can have started an ordinary activation even on a Hold Toggle
+                    // control. Finish that run before the silent-short-tap path; the helper
+                    // is a no-op when the threshold never started an activation.
+                    if (!isLatched) uiHelper.finishMomentaryPayload()
+
+                    // ✅ If hold-toggle is on and we never latched, cancel silently (no release)
+                    if (model.holdToggle && !isLatched) {
+                        holdHandler.removeCallbacksAndMessages(null)
+                        // DEBUG ↓ — early release before latch; nothing sent
+                        Log.d("DEBUG_BTN", "UP    (early release, holdToggle) ${model.payload}")
+                        return
+                    }
+
+                    // DEBUG ↓  — fires when you lift your finger
+                    Log.d("DEBUG_BTN", "UP    firing ${model.payload}")
+
+                    // Handle latch toggling on short tap for unlatched buttons only
+                    if (!isLatched && model.holdToggle) {
+                        // Cancel pending hold toggle if finger is lifted before holdDurationMs
+                        holdHandler.removeCallbacksAndMessages(null)
+                    }
+                }
+            }
+            }
+
+            /* ----- RE-CENTER BUTTON ----- */
+            ControlType.RECENTER -> when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    // Trigger vibration for recenter button
+                    triggerStrongVibration(40) // Medium vibration for recenter
+
+                    // Visual feedback
+                    isLatched = true
+                    isPressed = true
+                    invalidate()
+
+                    // Trigger re-centering of all sticks
+                    SwipeManager.recenterAllSticks()
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    // Visual feedback
+                    isLatched = false
+                    isPressed = false
+                    invalidate()
+                }
+            }
+
+            /* ----- STICK ----- */
+            ControlType.STICK, ControlType.CURVED_STICK, ControlType.RADIAL_CURVED_STICK -> {
+                // Stop continuous sending when touching the stick again
+                if (e.actionMasked == MotionEvent.ACTION_DOWN) {
+                    manualStickPointerId = e.getPointerId(e.actionIndex)
+                    stopContinuousSending()
+                    stopDirectionalCommands(natural = true)
+                    if (!model.directionalMode) {
+                        val stickName = ManualStickArbiter.canonicalStickName(model.payload)
+                        SwipeManager.stopContinuousSendingForStick(stickName)
+                        ManualStickArbiter.registerOutputScope(manualStickOwnerToken, outputScopeFor("stick"))
+                        val acquisition = ManualStickArbiter.acquire(
+                            stickName,
+                            manualStickOwnerToken,
+                            allowRetainedTakeover = true
+                        )
+                        ownsManualStick = acquisition.acquired
+                        manualStickReplacedRetained = acquisition.replacedRetainedOwner
+                        manualStickPointerId = e.getPointerId(e.actionIndex)
+                    }
+                }
+                handleStickOrPad(e)
+                if (e.actionMasked == MotionEvent.ACTION_DOWN) {
+                    manualStickReplacedRetained = false
+                }
+                if (e.actionMasked == MotionEvent.ACTION_UP ||
+                    e.actionMasked == MotionEvent.ACTION_CANCEL ||
+                    (e.actionMasked == MotionEvent.ACTION_POINTER_UP &&
+                        e.getPointerId(e.actionIndex) == manualStickPointerId)
+                ) {
+                    if (e.actionMasked == MotionEvent.ACTION_UP && !model.autoCenter && ownsManualStick) {
+                        outputScopeFor("stick")?.setRetained(true, ::releaseFloatingRuntime)
+                    } else if (UdpClient.floatingSupported) {
+                        if (e.actionMasked != MotionEvent.ACTION_UP) continuousSender.stopAndCenter()
+                        // A centered manual claim must relinquish the channel, not block the next surface.
+                        outputScopeFor("stick")?.releaseAllClaims()
+                    }
+                    releaseManualStickOwnership(center = false)
+                }
+            }
+
+            /* ----- TOUCHPAD (with one-finger drag) ----- */
+            ControlType.TOUCHPAD -> {
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        engageMouseSuppression()
+                        // Stop continuous sending when touching the pad again
+                        stopContinuousSending()
+
+                        // Initialize touchpad tracking
+                        lastTouchX = e.x
+                        lastTouchY = e.y
+                        touchPreviousDx = 0f
+                        touchPreviousDy = 0f
+                        touchInitialized = true // Set to true immediately - don't skip first move
+
+                        // Don't use MOUSE_RESET as it causes position jumps
+                        // NetworkClient.send("MOUSE_RESET")
+
+                        // Record press
+                        fingerIsDown = true
+                        lastDownTime = System.currentTimeMillis()
+                        downX = e.x
+                        downY = e.y
+                        touchMaxExcursionX = 0f
+                        touchMaxExcursionY = 0f
+                        if (swipeEnteredGesture) { lastTapWasClean = false; lastTapTime = 0L }
+
+                        // Handle mouse button states
+
+                        if (model.doubleTapClickLock) {
+                            // If this DOWN follows a recent clean tap, allow HOLD to engage lock (strict UR mode)
+                            val now = System.currentTimeMillis()
+
+                            // Expire any old "primed" tap if the window passed
+                            if (now - lastTapTime > secondTapMaxGapMs) {
+                                lastTapWasClean = false
+                            }
+
+                            // Don’t allow re-lock immediately after an unlock tap
+                            val inPostUnlockCooldown = (now - lastUnlockTime) < postUnlockCooldownMs
+
+                            // Only arm a lock if: (a) inside 2nd-tap window, (b) previous tap was clean,
+                            // (c) not already held, (d) not in cooldown
+                            val qualifiesForLockArm =
+                                (now - lastTapTime) <= secondTapMaxGapMs &&
+                                        lastTapWasClean &&
+                                        !swipeEnteredGesture &&
+                                        !leftHeld &&
+                                        !inPostUnlockCooldown
+
+                            // Cancel any prior pending check
+                            secondTapHoldCheck?.let { mouseClickHandler.removeCallbacks(it) }
+                            secondTapHoldCheck = null
+                            suppressNextUpClick = false   // click-first: reset at gesture start
+
+                            if (qualifiesForLockArm) {
+                                // Post a hold check: if finger still down & hasn't moved -> LOCK
+                                secondTapHoldCheck = Runnable {
+                                    val stillDown = fingerIsDown
+                                    val movedTooMuch = touchMaxExcursionX > tapSlopPx || touchMaxExcursionY > tapSlopPx
+                                    if (stillDown && !movedTooMuch && !leftHeld) {
+                                        leftHeld = true
+                                        suppressNextUpClick = true   // convert this tap into a hold; no click on UP
+                                        sendOwnedCommand("MOUSE_LEFT_DOWN")
+                                        triggerStrongVibration(25)
+                                        // consume the primed tap so you can't lock again much later
+                                        lastTapWasClean = false
+                                        lastTapTime = 0L
+                                        Log.d("TOUCHPAD", "Double-tap-HOLD: click-lock ON")
+                                    }
+                                    secondTapHoldCheck = null
+                                }
+                                mouseClickHandler.postDelayed(secondTapHoldCheck!!, holdToLockMs)
+                            }
+                        }
+                        else if (model.toggleLeftClick && !swipeEnteredGesture) {
+                            // Toggle mode - flip the leftHeld state
+                            leftHeld = !leftHeld
+
+                            // Send the appropriate mouse command based on new state
+                            if (leftHeld) {
+                                // Add 750ms delay before activating mouse down in click lock mode
+                                mouseClickHandler.postDelayed({
+                                    if (leftHeld) { // Check if still in locked state
+                                        sendOwnedCommand("MOUSE_LEFT_DOWN")
+                                        // Trigger vibration when mouse actually activates
+                                        triggerStrongVibration(25) // Short vibration for mouse click
+                                        Log.d("HAPTIC_DEBUG", "Mouse click lock activated after delay")
+                                    }
+                                }, 750) // 750ms delay
+                            } else {
+                                // Cancel any pending mouse down activation
+                                mouseClickHandler.removeCallbacksAndMessages(null)
+                                sendOwnedCommand("MOUSE_LEFT_UP")
+                            }
+                        } else if (model.holdLeftWhileTouch && !model.toggleLeftClick) {
+                            // Standard hold mode
+                            sendOwnedCommand("MOUSE_LEFT_DOWN")
+                            leftHeld = true
+                            // Trigger vibration for mouse click activation
+                            triggerStrongVibration(25) // Short vibration for mouse click
+                        }
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        touchMaxExcursionX = maxOf(touchMaxExcursionX, abs(e.x - downX))
+                        touchMaxExcursionY = maxOf(touchMaxExcursionY, abs(e.y - downY))
+                        if (touchMaxExcursionX > tapSlopPx || touchMaxExcursionY > tapSlopPx) {
+                            secondTapHoldCheck?.let { mouseClickHandler.removeCallbacks(it) }
+                            secondTapHoldCheck = null
+                        }
+                        // Calculate raw movement delta
+                        val dx = (e.x - lastTouchX) * model.sensitivity
+                        val dy = (e.y - lastTouchY) * model.sensitivity
+
+                        // Update for next calculation
+                        lastTouchX = e.x
+                        lastTouchY = e.y
+
+                        // Skip if movement is within the dead-zone
+                        if (abs(dx) < touchDeadzone && abs(dy) < touchDeadzone) return
+
+                        // ───── smoothing ───────────────────────────────
+                        val smoothedDx = dx * (1 - touchSmoothingFactor) +
+                                touchPreviousDx * touchSmoothingFactor
+                        val smoothedDy = dy * (1 - touchSmoothingFactor) +
+                                touchPreviousDy * touchSmoothingFactor
+                        touchPreviousDx = smoothedDx
+                        touchPreviousDy = smoothedDy
+
+                        // ───── non-linear scaling ──────────────────────
+                        val scaledDx = applyTouchpadScaling(smoothedDx)
+                        val scaledDy = applyTouchpadScaling(smoothedDy)
+
+                        // ───── rate-limit traffic ──────────────────────
+                        val now = System.currentTimeMillis()
+                        if (now - lastTouchpadSendTime < touchpadSendIntervalMs) return
+                        lastTouchpadSendTime = now
+
+                        // ───── send to server ──────────────────────────
+                        if (GlobalSettings.scrollMode) {
+                            // Scroll mode ON → use vertical delta only
+                            // (flip sign here if you want “natural” scrolling)
+                            outputScopeFor("touchpad")?.sendScroll(-scaledDy)
+                                ?: run { if (canSendLegacyOutput) UdpClient.sendScroll(-scaledDy) }
+                        } else {
+                            // Normal touch-pad cursor movement
+                            outputScopeFor("touchpad")?.sendMouseDelta(scaledDx, scaledDy)
+                                ?: run { if (canSendLegacyOutput) UdpClient.sendTouchpadDelta(scaledDx, scaledDy) }
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        // Reset tracking
+                        touchPreviousDx = 0f
+                        touchPreviousDy = 0f
+
+                        // Send a final zero movement to ensure mouse stops
+                        if (canSendLegacyOutput) UdpClient.sendTouchpadPosition(0f, 0f)
+
+                        // End-of-gesture flags / cleanup
+                        fingerIsDown = false
+                        secondTapHoldCheck?.let { mouseClickHandler.removeCallbacks(it) }
+                        secondTapHoldCheck = null
+                        if (swipeHandoffEnding || swipeEnteredGesture) {
+                            lastTapWasClean = false
+                            lastTapTime = 0L
+                        }
+
+                        if (model.doubleTapClickLock) {
+                            val upTime = System.currentTimeMillis()
+                            val duration = upTime - lastDownTime
+                            val movedTooMuch = maxOf(touchMaxExcursionX, abs(e.x - downX)) > tapSlopPx ||
+                                maxOf(touchMaxExcursionY, abs(e.y - downY)) > tapSlopPx
+                            val isCleanTap = duration <= tapTimeoutMs && !movedTooMuch &&
+                                !swipeEnteredGesture && !swipeHandoffEnding
+
+                            if (leftHeld) {
+                                // While locked: a clean tap = unlock
+                                if (isCleanTap) {
+                                    sendOwnedCommand("MOUSE_LEFT_UP")
+                                    leftHeld = false
+                                    lastUnlockTime = upTime          // NEW: short cooldown before a re-lock
+                                    triggerStrongVibration(15)
+                                    Log.d("TOUCHPAD", "Tap: click-lock OFF")
+                                }
+                                // Unlocking should not prime a new lock
+                                lastTapWasClean = false
+                                lastTapTime = 0L
+                            } else {
+                                if (isCleanTap) {
+                                    // Single clean tap = normal click
+                                    sendOwnedCommand("MOUSE_LEFT_DOWN")
+                                    sendOwnedCommand("MOUSE_LEFT_UP")
+                                    triggerStrongVibration(20)
+                                    Log.d("TOUCHPAD", "Single tap: click")
+
+                                    // Prime for a potential lock (expires quickly)
+                                    lastTapWasClean = true
+                                    lastTapTime = upTime
+                                } else {
+                                    // Not a clean tap → do not prime a lock
+                                    lastTapWasClean = false
+                                    // Clear stale timestamp so a much-later second tap can't arm a lock
+                                    if (upTime - lastTapTime > secondTapMaxGapMs) {
+                                        lastTapTime = 0L
+                                    }
+                                }
+                            }
+                        } else {
+                            // Only release mouse button on up/cancel if using standard hold mode
+                            if (!model.toggleLeftClick &&
+                                leftHeld && model.holdLeftWhileTouch) {
+                                sendOwnedCommand("MOUSE_LEFT_UP")
+                                leftHeld = false
+                            }
+                        }
+                    }
+                }
+            }
+
+            /* ----- TOUCH AIM: relative aim plus contact levels ----- */
+            ControlType.TOUCH_AIM -> {
+                isPressed = e.actionMasked != MotionEvent.ACTION_UP &&
+                        e.actionMasked != MotionEvent.ACTION_CANCEL
+                touchAimHandler?.onTouch(e)
+                invalidate()
+            }
+        }
+        } finally {
+            if (e.actionMasked == MotionEvent.ACTION_UP || e.actionMasked == MotionEvent.ACTION_CANCEL) {
+                physicalGestureActive = false
+            }
+            refreshOutputRetention()
+            refreshLegacyOutputBusy()
+        }
+    }
+
+    /**
+     * Apply non-linear scaling to touchpad movement for better control
+     * - Boost small movements for precision
+     * - Cap large movements to prevent jerky motion
+     */
+    private fun applyTouchpadScaling(value: Float): Float {
+        val absValue = abs(value)
+        val sign = if (value >= 0) 1f else -1f
+
+        return when {
+            // Tiny movements get precision boost
+            absValue < 0.2f -> sign * (absValue * 1.5f)
+            // Medium movements pass through mostly unchanged
+            absValue < 0.6f -> sign * absValue
+            // Large movements get slightly reduced
+            else -> sign * (0.6f + (absValue - 0.6f) * 0.8f)
+        }
+    }
+
+    /**
+     * Handle stick or touchpad movement
+     */
+    private fun handleStickOrPad(e: MotionEvent) {
+        if (e.actionMasked !in listOf(
+                MotionEvent.ACTION_MOVE,
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL) &&
+            !(e.actionMasked == MotionEvent.ACTION_DOWN && manualStickReplacedRetained)
+        ) return
+
+        val cx = width/2f
+        val cy = height/2f
+        val physicalX = (e.x - cx) / (width/2f)
+        val physicalY = (e.y - cy) / (height/2f)
+        val rawX = physicalX.coerceIn(-1f, 1f)
+        val rawY = physicalY.coerceIn(-1f, 1f)
+        val (nx, ny) = when (model.type) {
+            ControlType.CURVED_STICK ->
+                StickResponseCurve.apply(rawX, model.sensitivity) to
+                    StickResponseCurve.apply(rawY, model.sensitivity)
+            ControlType.RADIAL_CURVED_STICK ->
+                StickResponseCurve.applyRadial(rawX, rawY, model.sensitivity)
+            else -> rawX * model.sensitivity to rawY * model.sensitivity
+        }
+        val isStickControl =
+            model.type == ControlType.STICK || model.type == ControlType.CURVED_STICK ||
+                model.type == ControlType.RADIAL_CURVED_STICK
+
+        // Only snap if snapEnabled is true AND the control's autoCenter is true AND it's an UP/CANCEL event
+        val isLift = e.actionMasked == MotionEvent.ACTION_UP ||
+                e.actionMasked == MotionEvent.ACTION_CANCEL ||
+                e.actionMasked == MotionEvent.ACTION_POINTER_UP    // ← new
+        val shouldSnap = model.autoCenter && isLift                    // ← no global flag
+
+        val (sx, sy) = if (shouldSnap) 0f to 0f else nx to ny
+        // Boost/super-boost thresholds on the curved type follow physical travel,
+        // independent of curve sensitivity. Existing Stick threshold behavior is untouched.
+        val curvedStick = model.type == ControlType.CURVED_STICK ||
+            model.type == ControlType.RADIAL_CURVED_STICK
+        val legacyDirectionalX = if (curvedStick && !shouldSnap) rawX else sx
+        val legacyDirectionalY = if (curvedStick && !shouldSnap) rawY else sy
+        val directionalX = if (model.extendedBoost.enabled && !shouldSnap) physicalX else legacyDirectionalX
+        val directionalY = if (model.extendedBoost.enabled && !shouldSnap) physicalY else legacyDirectionalY
+
+        val canSendAnalog = ownsManualStick &&
+            ManualStickArbiter.owns(model.payload, manualStickOwnerToken)
+
+        // Shape once, publish through the owner arbiter, then remember exactly what
+        // was accepted. A blocked second surface must not move its knob or resend.
+        val acceptedAnalog = isStickControl && !model.directionalMode && canSendAnalog &&
+            ManualStickArbiter.send(model.payload, manualStickOwnerToken, sx, sy, model.excludeFromCameraFollow)
+        if (acceptedAnalog) {
+            continuousSender.setLastPosition(sx, sy)
+            updateStickVisual(sx, sy)
+        }
+
+        if (isStickControl) {
+            when {
+                model.directionalMode -> {
+                    // WASD has no analog owner; show physical travel, not its
+                    // sensitivity-scaled command intensity.
+                    updateStickVisual(if (shouldSnap) 0f else rawX, if (shouldSnap) 0f else rawY)
+                    directionalHandler.handleDirectionalStick(
+                        directionalX, directionalY, e.actionMasked, analogX = sx, analogY = sy
+                    )
+                }
+                model.stickPlusMode -> {
+                    if (acceptedAnalog) {
+                        directionalHandler.handleStickPlusMode(directionalX, directionalY, e.actionMasked)
+                    } else {
+                        directionalHandler.stopDirectionalCommands()
+                    }
+                }
+            }
+        } else {
+            sendOwnedCommand("${model.payload}:${"%.2f".format(sx)},${"%.2f".format(sy)}")
+        }
+
+        // If auto-center triggered, ensure continuous sending is stopped and send final 0,0
+        if (shouldSnap) {
+            stopContinuousSending()
+            // Ensure a final 0,0 position is sent for auto-center sticks
+            if (isStickControl && canSendAnalog) {
+                ManualStickArbiter.send(model.payload, manualStickOwnerToken, 0f, 0f)
+            }
+        }
+
+        // If this is an UP or CANCEL event and we shouldn't snap,
+        // start continuous sending of the last position ONLY FOR STICKS in ANALOG mode
+        if ((e.actionMasked == MotionEvent.ACTION_UP || e.actionMasked == MotionEvent.ACTION_CANCEL) &&
+            !shouldSnap &&
+            isStickControl &&  // Only for sticks, not touchpads
+            acceptedAnalog &&
+            !model.directionalMode &&  // Only for analog sticks, not directional ones
+            !model.autoCenter) {
+
+            // If stick position is near center, don't bother with continuous sending
+            if (abs(sx) < 0.1f && abs(sy) < 0.1f) {
+                stopContinuousSending()
+                return
+            }
+
+            startContinuousSending()
+        }
+    }
+
+    /* ───────── public methods for state control ────────── */
+
+    /**
+     * Start continuous sending of the current position
+     */
+    fun startContinuousSending() {
+        continuousSender.startContinuousSending()
+    }
+
+    /**
+     * Stop continuous sending
+     */
+    fun stopContinuousSending() {
+        continuousSender.stopContinuousSending()
+        refreshLegacyOutputBusy()
+    }
+
+    /** Orange Recenter ends this Stick's claim without acquiring a new neutral owner. */
+    fun recenterStickOutput() {
+        if (model.type != ControlType.STICK && model.type != ControlType.CURVED_STICK &&
+            model.type != ControlType.RADIAL_CURVED_STICK) return
+        continuousSender.stopAndCenter(centerOutput = false)
+        stopDirectionalCommands(centerOutput = false)
+        releaseManualStickOwnership(center = false)
+        updateStickVisual(0f, 0f)
+        if (UdpClient.floatingSupported) {
+            // Releasing only our existing child publishes neutral only if no other owner remains.
+            outputRoot?.takeIf { it.isActive }?.child("stick")?.let { scope ->
+                scope.releaseAllClaims()
+                scope.setRetained(false)
+            }
+        } else if (!model.directionalMode) {
+            sendOwnedStick(model.payload, 0f, 0f)
+        }
+        refreshLegacyOutputBusy()
+    }
+
+    fun stopContinuousSendingForStick(stickName: String) {
+        if ((model.type == ControlType.STICK || model.type == ControlType.CURVED_STICK ||
+                model.type == ControlType.RADIAL_CURVED_STICK) &&
+            ManualStickArbiter.canonicalStickName(model.payload) ==
+            ManualStickArbiter.canonicalStickName(stickName) &&
+            continuousSender.isActive()
+        ) {
+            stopContinuousSending()
+        }
+    }
+
+    private fun releaseManualStickOwnership(center: Boolean) {
+        if (!ownsManualStick) return
+        val stickName = ManualStickArbiter.canonicalStickName(model.payload)
+        ManualStickArbiter.release(stickName, manualStickOwnerToken, center)
+        if (center) updateStickVisual(0f, 0f)
+        ownsManualStick = false
+        manualStickPointerId = MotionEvent.INVALID_POINTER_ID
+    }
+
+    /** Stop the sender and force its remembered coordinate to neutral for safety cleanup. */
+    private fun stopContinuousSendingAndCenter() {
+        continuousSender.stopAndCenter()
+        updateStickVisual(0f, 0f)
+    }
+
+    /**
+     * Stop directional commands
+     */
+    fun stopDirectionalCommands(centerOutput: Boolean = true, natural: Boolean = false) {
+        directionalHandler.stopDirectionalCommands(centerOutput, natural)
+        if (model.directionalMode) updateStickVisual(0f, 0f)
+        refreshLegacyOutputBusy()
+    }
+
+    /**
+     * Stop repeating (for turbo mode)
+     */
+    fun stopRepeat() {
+        uiHelper.stopRepeat()
+    }
+
+    fun releaseAutoTap() {
+        autoTapController?.stop()
+        autoTapPayloadExecutor?.releaseAllLeases()
+        autoTapLease = null
+    }
+
+    fun releaseTouchAim() {
+        touchAimHandler?.let {
+            it.releaseAll()
+            isPressed = false
+            invalidate()
+        }
+    }
+
+    fun releaseButtonAim() {
+        buttonAimHandler?.let {
+            if (model.buttonAimEnabled || it.hasRuntimeState()) {
+                it.hardReset()
+                uiHelper.cancelPendingActionsForReleaseAll()
+            }
+        }
+    }
+
+    fun releaseButtonDirections() {
+        buttonDirectionalHandler?.takeIf { it.hasRuntimeState() }?.releaseAll()
+    }
+
+    fun recenterButtonAimStick(): Boolean = buttonAimHandler?.recenterStickOutput() == true
+
+    /**
+     * Clear every held, delayed, latched, or repeating state owned by this view.
+     * This deliberately leaves the serialized model and all global settings unchanged.
+     */
+    fun releaseEverythingLocally() {
+        basicSurfacePointerId = MotionEvent.INVALID_POINTER_ID
+        swipeEnteredGesture = false
+        swipeHandoffEnding = false
+        touchMaxExcursionX = 0f
+        touchMaxExcursionY = 0f
+        physicalGestureActive = false
+        macroPointerId = MotionEvent.INVALID_POINTER_ID
+        activationGestureConsumed = false
+        pageActionGestureConsumed = false
+        val buttonAimOwnedRuntime = buttonAimHandler?.hasRuntimeState() == true
+        val buttonDirectionsOwnedRuntime = buttonDirectionalHandler?.hasRuntimeState() == true
+        if (buttonAimOwnedRuntime) buttonAimHandler?.hardReset()
+        releaseButtonDirections()
+        holdHandler.removeCallbacksAndMessages(null)
+        mouseClickHandler.removeCallbacksAndMessages(null)
+        secondTapHoldCheck = null
+        pendingSingleTap = null
+
+        releaseAutoTap()
+        stopRepeat()
+        uiHelper.cancelPendingActionsForReleaseAll()
+        stopContinuousSendingAndCenter()
+        stopDirectionalCommands()
+        touchAimHandler?.releaseAll()
+        releaseManualStickOwnership(center = true)
+
+        if (leftHeld) sendOwnedCommand("MOUSE_LEFT_UP")
+        leftHeld = false
+        fingerIsDown = false
+        touchInitialized = false
+        touchPreviousDx = 0f
+        touchPreviousDy = 0f
+        suppressNextUpClick = false
+        awaitingSecondTap = false
+        lastTapWasClean = false
+        lastTapTime = 0L
+        wasJustUnlatched = false
+
+        val wasLatched = isLatched
+        val wasPressed = isPressed
+        isPressed = false
+        if (model.type == ControlType.BUTTON) {
+            if (buttonAimOwnedRuntime || buttonDirectionsOwnedRuntime || model.macroModeEnabled) {
+                // The gesture handlers already reconciled their leased payloads.
+            } else if (wasLatched) {
+                isLatched = false
+            } else if (wasPressed) {
+                // A physically held non-latched button still needs its normal release mapping.
+                uiHelper.releaseLatched()
+            }
+        } else {
+            // Specialized stick/touch handlers already neutralized these controls.
+            // Do not reinterpret a non-button payload name as a keyboard key.
+            isLatched = false
+        }
+        allowOutputScopeCreation = false
+        outputRoot?.finish()
+        outputRoot = null
+        endMouseSuppression()
+        UdpClient.setLegacyOutputBusy(this, false)
+        invalidate()
+    }
+
+    /**
+     * Show properties dialog for this control
+     * This method is needed by LayoutManager
+     */
+    fun showProps() {
+        releaseFloatingRuntime()
+        // Reconcile the old runtime payload/config before the dialog mutates the model.
+        releaseAutoTap()
+        releaseButtonAim()
+        releaseButtonDirections()
+        releaseTouchAim()
+        uiHelper.cancelMacro()
+        PropertySheetBuilder(context, model) {
+            // After properties are updated:
+            releaseAutoTap()
+            releaseButtonAim()
+            releaseButtonDirections()
+            releaseTouchAim()
+            uiHelper.cancelMacro()
+            val lp = layoutParams as ViewGroup.MarginLayoutParams
+            lp.width = model.w.toInt()
+            lp.height = model.h.toInt()
+            layoutParams = lp
+            refreshControlLabel()
+            invalidate()
+
+            // Stop any running senders when settings change
+            stopContinuousSending()
+            stopDirectionalCommands()
+        }.showPropertySheet()
+    }
+}
