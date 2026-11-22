@@ -19,6 +19,9 @@ What do I need for each connection?
 - Windows PC: the phone, your existing PC and home network, plus the free
   receiver software and its virtual-controller driver. No Pico, adaptive
   controller or console adapter is needed for this PC route.
+- Mac: the phone, your Mac and home network, plus the free Mac receiver and
+  Python. It sends keyboard and mouse input; it maps existing gamepad layouts
+  to those inputs. No Pico or controller driver is needed.
 - Xbox: a programmed Raspberry Pi Pico W, an Xbox Adaptive Controller and the
   cables/power supply described below. The phone connects to the Pico over Wi-Fi.
 - Permobil joystick: a second Pico W running the separate Omni2 firmware.
@@ -58,7 +61,7 @@ How do I connect?
 3. Start the receiver and leave its window open. Read the local IPv4 address
    and port it displays. The packaged receiver uses UDP port 42734.
 4. On iPhone, open Bridge menu -> Bridge settings and choose Windows PC.
-   On Android, choose the Windows receiver output mode in connection settings.
+   On Android, choose the Windows / Mac receiver output mode in connection settings.
 5. Type the receiver's IPv4 address and port into the app. Use the PC's address,
    not the phone's address, the router's address or a web address. Do not enter
    127.0.0.1: that means the phone itself when typed on the phone.
@@ -91,12 +94,64 @@ the receiver. A VPN, guest isolation, changed DHCP address or a second receiver
 using the port can prevent connection. The iPhone Windows PC mode is different
 from Pico SCX2 mode; choosing the wrong mode will not work.
 
-Does this work on Mac or Linux games?
-The supplied game-input receiver targets Intel/AMD 64-bit Windows (Windows 11 recommended), not Windows ARM. It needs 64-bit Python 3.10 or newer. The iPhone and bridge software
-can be developed or tested on a Mac, but that is not a Mac game-input receiver.
-This release's new iPhone PC path has protocol, timing and local UDP tests;
-physical Windows driver/game acceptance still needs a Windows test. Android's
-original Windows command path remains available in the updated receiver.
+MAC — KEYBOARD AND MOUSE PLAY, WITHOUT A PICO
+
+Can I play Mac games using my existing layouts?
+Yes, when the game accepts keyboard and mouse input. The Mac receiver translates
+your existing controls: left stick to WASD, right stick to mouse movement, LT to
+right-click and RT to left-click. The D-pad becomes arrow keys. Buttons use the
+receiver's editable mapping. Touchpads, keyboard/mouse payloads, holds, repeated
+presses and macros also work through this route. Your phone profiles are not
+converted or overwritten.
+
+This is not a virtual Xbox controller on Mac. Stick movement becomes digital
+keys; trigger percentages become pressed/released mouse buttons. A game that
+requires a real gamepad, analog steering or partial trigger pressure is not
+supported by this software-only Mac route. The game's keyboard bindings must
+match the receiver's mapping. Windows retains its separate virtual Xbox route.
+
+What do I install on the Mac?
+1. Download the updated PC-Receiver.zip from either app's Releases page. Extract
+   the complete folder and keep its files together. Open its README.md.
+2. Install Python 3.10 or later using the free macOS installer from python.org
+   if you do not already have it. Use the official universal2 installer for
+   Apple silicon or Intel. No Windows driver, Pico or paid receiver is needed.
+3. Open Start-Mac-Receiver.command. Read its permission instructions. macOS
+   requires Accessibility permission for the Terminal/Python process that
+   sends keys and mouse events. Enable only the named process you launched in
+   System Settings -> Privacy & Security -> Accessibility, then restart it.
+   The receiver checks permission and will not pretend inputs are working when
+   permission is missing. Review macOS's first-open prompt if one appears.
+4. Connect the phone and Mac to the same trusted home network. The Mac may use
+   Ethernet. Read the Mac IPv4 address displayed by the receiver and port 42734.
+5. On iPhone choose Bridge menu -> Bridge settings -> Mac • keyboard and mouse.
+   On Android choose Windows / Mac receiver. Enter the Mac address and 42734,
+   save and connect. Allow the phone's local network access when prompted.
+6. Leave the receiver open. Test a simple key in an empty text document and
+   pointer movement before opening a game. Check Stop / Release all. Match the
+   receiver's mappings to your game's keyboard settings before playing.
+7. Stop the receiver when finished; it releases the keys and mouse buttons it
+   owns. Wi-Fi loss also expires phone input. Keep this service on your trusted
+   home network; do not forward its port to the Internet.
+
+Can I change the Mac mappings?
+Yes. Stop the receiver, open Configure-Mac-Receiver.command, choose the desired
+keys/clicks in the visual editor, and save. Reopen Start-Mac-Receiver.command.
+The editor also offers camera speed, deadzone and vertical inversion. Python
+from python.org includes the Tk component needed for this optional editor.
+Changing receiver mapping does not edit your phone layout or Xbox setup. Both
+phone apps use the same receiver package. Use one phone and Player 1 on Mac;
+two player inputs would share the same keyboard and mouse, not separate gamepads.
+It does not combine the independent chair Pico with the phone as a Mac gamepad.
+
+Which computers are supported?
+Mac: macOS 13 or later, Apple silicon or Intel, Python 3.10 or later, keyboard
+and mouse output only. Test each game's input support; some games reject
+synthetic keyboard/mouse events. This release does not claim tested gameplay.
+Windows: Intel/AMD 64-bit Windows (Windows 11 recommended), not Windows ARM;
+64-bit Python 3.10 or later and the documented virtual-controller driver.
+Physical Windows driver/game acceptance remains a separate check. Linux is
+not supported by this receiver package.
 
 XBOX — PICO AND ADAPTIVE CONTROLLER
 
