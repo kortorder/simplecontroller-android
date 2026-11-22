@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.log
+SimpleControllerReceiver/
+touchpad_logs/

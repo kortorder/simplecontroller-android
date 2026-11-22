@@ -1,0 +1,5 @@
+# Direct runtime dependencies. Driver installation is a separate, user-reviewed step.
+keyboard==0.13.5
+mouse==0.7.1
+PyAutoGUI==0.9.54
+vgamepad==0.2.0
