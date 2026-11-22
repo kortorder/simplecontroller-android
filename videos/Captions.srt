@@ -1,0 +1,176 @@
+1
+00:00:00,000 --> 00:00:08,000
+Simple Controller
+A quick tour. One finger. Your way.
+
+2
+00:00:08,000 --> 00:00:13,000
+Start in Practice. Nothing goes to Xbox.
+
+3
+00:00:13,000 --> 00:00:18,000
+Touch. Drag. Explore.
+Stop clears this phone’s actions.
+
+4
+00:00:18,000 --> 00:00:24,000
+Stick+: move a little to walk.
+
+5
+00:00:24,000 --> 00:00:30,000
+Move farther to add sprint.
+
+6
+00:00:30,000 --> 00:00:36,000
+Reach the outer stage to add jump.
+You choose the actions and distances.
+
+7
+00:00:36,000 --> 00:00:42,000
+Need repeated presses?
+Enable Repeat Stick+ buttons.
+
+8
+00:00:42,000 --> 00:00:50,000
+Button Aim: touch and drag to aim.
+One pad can aim and fire together.
+
+9
+00:00:50,000 --> 00:00:58,000
+Choose its actions and sensitivity.
+Act on touch or lift—no calibration needed.
+
+10
+00:00:58,000 --> 00:01:04,000
+Drive + steer combines acceleration
+with left-stick movement.
+
+11
+00:01:04,000 --> 00:01:10,000
+Add up/down for flying.
+Or separate steering, gas and brake.
+
+12
+00:01:10,000 --> 00:01:16,000
+Hold to toggle: hold for its timer.
+Lift: it stays on. Tap again: off.
+
+13
+00:01:16,000 --> 00:01:22,000
+Double-tap to repeat keeps tapping.
+Tap once to stop.
+
+14
+00:01:22,000 --> 00:01:28,000
+More choices: Auto-Tap repeats after one tap.
+Turbo repeats while you touch.
+
+15
+00:01:28,000 --> 00:01:34,000
+Auto-center off keeps a stick moving.
+Center stops sticks. Stop clears all phone actions.
+
+16
+00:01:34,000 --> 00:01:39,000
+A small directional pad can send
+all four D-pad directions.
+
+17
+00:01:39,000 --> 00:01:44,000
+Hold the wheel; drag to choose.
+Check your game’s mapping.
+
+18
+00:01:44,000 --> 00:01:48,000
+Enable sliding to move between
+ordinary buttons without lifting.
+
+19
+00:01:48,000 --> 00:01:54,000
+Floating controls appear near your touch.
+Rings use distance to add actions.
+
+20
+00:01:54,000 --> 00:02:00,000
+Aim, hold or repeat from the ring.
+Finish closes it. No contact calibration.
+
+21
+00:02:00,000 --> 00:02:06,000
+TouchAim uses finger-contact size
+to choose Aim or Shoot stages.
+
+22
+00:02:06,000 --> 00:02:12,000
+Open Touch inspector first.
+Contact size is not pressure.
+
+23
+00:02:12,000 --> 00:02:18,000
+Comfortable touches look the same?
+Choose Button Aim or a ring instead.
+
+24
+00:02:18,000 --> 00:02:23,000
+Macro Mode finishes after you lift.
+Choose actions, delays and press lengths.
+
+25
+00:02:23,000 --> 00:02:28,000
+Each press releases automatically.
+Stop cancels the sequence.
+
+26
+00:02:28,000 --> 00:02:34,000
+Tap Edit, then drag a control.
+Use the edges, too.
+
+27
+00:02:34,000 --> 00:02:40,000
+Hold to change its size or actions.
+Tap Done, then Save to keep changes.
+
+28
+00:02:40,000 --> 00:02:45,000
+Hide a menu. Drag its little circle.
+Tap to open it again.
+
+29
+00:02:45,000 --> 00:02:50,000
+Move actions with the arrow.
+Choose Vertical toolbar in ….
+
+30
+00:02:50,000 --> 00:02:56,000
+Profiles hold your controllers.
+Pages keep their controls organized.
+
+31
+00:02:56,000 --> 00:03:02,000
+Choose a Game starter.
+Its Menus page keeps navigation nearby.
+
+32
+00:03:02,000 --> 00:03:09,000
+Mouse, keys and Camera Follow:
+use the free PC receiver.
+
+33
+00:03:09,000 --> 00:03:16,000
+Copy profiles. Reuse settings.
+Export a backup. Import or recover it later.
+
+34
+00:03:16,000 --> 00:03:21,000
+Connect to a PC or console.
+Support shows the setup steps.
+
+35
+00:03:21,000 --> 00:03:26,000
+USB buttons means full press or release.
+Adjustable pressure needs matching hardware.
+
+36
+00:03:26,000 --> 00:03:30,000
+Start small. Find your rhythm.
+Make it yours.
