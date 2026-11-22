@@ -45,6 +45,7 @@ class CommunityHelpInstrumentedTest {
             repeat(6) { click(dialog, R.id.helpNext) }
             assertEquals("Connect wirelessly to a PC", dialog.findViewById<TextView>(R.id.helpPageTitle)!!.text.toString())
             assertTrue(dialog.findViewById<TextView>(R.id.helpPageBody)!!.text.contains("IPv4"))
+            assertTrue(dialog.findViewById<TextView>(R.id.helpPageBody)!!.text.contains("Mac"))
             click(dialog, R.id.helpNext)
             assertTrue(dialog.findViewById<TextView>(R.id.helpPageBody)!!.text.contains("Support tab"))
             click(dialog, R.id.helpBack)
