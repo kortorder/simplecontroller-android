@@ -4,3 +4,4 @@ __pycache__/
 *.log
 SimpleControllerReceiver/
 touchpad_logs/
+Mac-Mapping.previous.json

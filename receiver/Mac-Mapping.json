@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "buttons": {
+    "A": "SPACE",
+    "B": "LCTRL",
+    "X": "R",
+    "Y": "E",
+    "LB": "Q",
+    "RB": "G",
+    "START": "ESC",
+    "BACK": "TAB",
+    "UP": "UP",
+    "DOWN": "DOWN",
+    "LEFT": "LEFT",
+    "RIGHT": "RIGHT",
+    "LS": "LSHIFT",
+    "RS": "V"
+  },
+  "left_stick": {
+    "up": "W",
+    "down": "S",
+    "left": "A",
+    "right": "D"
+  },
+  "triggers": {
+    "LT": "MOUSE_RIGHT",
+    "RT": "MOUSE_LEFT"
+  },
+  "stick_deadzone": 0.2,
+  "trigger_threshold": 0.0,
+  "right_stick_pixels_per_second": 900.0,
+  "invert_right_stick_y": false
+}
