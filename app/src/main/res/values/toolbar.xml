@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="toolbarBridge" type="id"/>
+    <item name="toolbarCamera" type="id"/>
+    <item name="toolbarTools" type="id"/>
+    <item name="toolbarRelease" type="id"/>
+    <item name="panelCamera" type="id"/>
+    <item name="panelStrength" type="id"/>
+    <string name="toolbar_bridge">Bridge menu</string>
+    <string name="toolbar_camera">Camera Follow</string>
+    <string name="toolbar_tools">All controls</string>
+    <string name="toolbar_release">Release all</string>
+    <string name="toolbar_connect">Connect bridge</string>
+    <string name="toolbar_settings">Connection settings</string>
+    <string name="toolbar_practice">Practice on this phone</string>
+    <string name="toolbar_done">Done</string>
+    <string name="toolbar_camera_strength">Camera Follow strength</string>
+</resources>

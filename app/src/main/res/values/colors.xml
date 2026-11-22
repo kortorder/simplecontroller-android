@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Dark mode theme colors with black and blue -->
+    <color name="dark_background">#FF121212</color>
+    <color name="darker_black">#FF000000</color>
+    <color name="dark_surface">#FF1E1E1E</color>
+    <color name="primary_blue">#FF2979FF</color>
+    <color name="secondary_blue">#FF0D47A1</color>
+    <color name="accent_blue">#FF40C4FF</color>
+    <color name="dark_text_primary">#FFEEEEEE</color>
+    <color name="dark_text_secondary">#FFB0B0B0</color>
+    <color name="button_blue">#FF1E88E5</color>
+    <color name="button_pressed_blue">#FF2979FF</color>
+    <color name="stick_blue">#FF0D47A1</color>
+    <color name="stick_pressed_blue">#FF1A237E</color>
+    <color name="touchpad_blue">#220D47A1</color>
+    <color name="recenter_orange">#FFFF9800</color>
+    <color name="recenter_pressed_orange">#FFFFC107</color>
+
+    <!-- Player-specific colors -->
+    <color name="player1_color">#225599</color>
+    <color name="player2_color">#993322</color>
+
+    <!-- Connection status colors -->
+    <color name="status_connected">#FF4CAF50</color>
+    <color name="status_connecting">#FFFFEB3B</color>
+    <color name="status_disconnected">#FF9E9E9E</color>
+    <color name="status_error">#FFF44336</color>
+
+    <!-- App chrome only: keep controller/profile colors above unchanged. -->
+    <color name="app_button_blue">#FF1D5FA7</color>
+    <color name="app_control_disabled_surface">#FF314156</color>
+    <color name="app_control_disabled_text">#FFAEBCCC</color>
+    <color name="app_switch_thumb_on">#FF8BCBFF</color>
+    <color name="app_switch_thumb_off">#FFB0B8C4</color>
+    <color name="app_switch_track_on">#FF285E96</color>
+    <color name="app_switch_track_off">#FF485362</color>
+    <color name="app_status_connecting_text">#FFC8E3FF</color>
+    <color name="app_status_connected_text">#FFCBF2D4</color>
+    <color name="app_status_error_text">#FFFFE1E1</color>
+</resources>

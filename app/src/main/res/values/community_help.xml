@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item type="id" name="helpPageTitle"/><item type="id" name="helpPageBody"/>
+    <item type="id" name="helpNext"/><item type="id" name="helpBack"/><item type="id" name="helpSkip"/>
+    <item type="id" name="helpPageCount"/><item type="id" name="helpSupportTabs"/>
+    <item type="id" name="helpTabPC"/><item type="id" name="helpTabConsole"/><item type="id" name="helpTabLearn"/>
+    <item type="id" name="helpScroll"/>
+    <string name="help_title">Support</string>
+    <string name="help_quick_tour">Quick picture tour</string>
+    <string name="help_next">Next</string><string name="help_back">Back</string>
+    <string name="help_finish">Start playing</string><string name="help_skip">Skip for now</string>
+    <string name="help_page_count">Page %1$d of %2$d</string>
+    <string name="help_tab_pc">PC</string><string name="help_tab_console">Console</string><string name="help_tab_learn">Learn</string>
+    <string name="help_open_settings">Open connection settings</string>
+    <string name="help_faq">Read the setup FAQ</string>
+    <string name="help_videos">Watch the beginner videos</string>
+    <string name="help_receiver">Get the free Windows receiver</string>
+    <string name="help_wifi_bridge">Phone / Wi-Fi Pico bridge</string>
+    <string name="help_chair_bridge">Permobil Omni2 joystick bridge</string>
+    <string name="help_project">App source and downloads</string>
+    <string name="help_contact">Report a problem on GitHub</string>
+    <string name="help_external">Links open your browser. Never post Wi-Fi passwords or private profiles in a public issue.</string>
+    <string name="help_no_browser">No browser is available to open this link.</string>
+    <string-array name="help_tour_titles">
+        <item>Your controller, your way</item><item>Try it in Practice</item>
+        <item>Move, run and jump</item><item>Aim and drive with one finger</item>
+        <item>Let a button do more</item><item>Make room for your hand</item>
+        <item>Connect wirelessly to a PC</item><item>Connect to a console</item>
+    </string-array>
+    <string-array name="help_tour_bodies">
+        <item>Build a controller around the movements that feel comfortable. Buttons, sticks and touchpads can share a profile. Use Next or swipe the picture to browse this short tour. You can reopen it from Support.</item>
+        <item>Open Bridge menu and choose Practice. Nothing is sent to a game. Try a game starter, touch a button and move a stick. Release all stops phone actions. Pages keep related controls together inside one profile.</item>
+        <item>Auto-center returns a stick to the middle when you lift. Turn it off to keep moving without holding your finger down; use Re-center to stop. Stick+ adds actions at chosen distances, such as running farther out and jumping at the edge. Assignments depend on your game.</item>
+        <item>A Button Aim control can hold aim while your drag moves the right stick. Add fire to the same control for a combined pad. A driving pad can hold the trigger while left and right movement steers. You choose the actions and trigger amounts.</item>
+        <item>Hold Toggle keeps an action down after a long touch. Repeat taps it for you. Macro Mode finishes a timed sequence from one tap. Touch Aim can choose stages from finger contact size on supported phones; a normal aiming pad is an alternative that needs no contact calibration.</item>
+        <item>Tap Edit, drag a control, then save. Hold a control in Edit to change its size and actions. Use small circles where comfortable. Keep frequent actions close to your finger and use pages for other controls. Profiles and backups let you keep different setups.</item>
+        <item>No Pico or adaptive controller is needed for Windows PC play. Install and run the free receiver on the PC, then put the phone and PC on the same network. In connection settings, choose Windows and type the PC&#8217;s IPv4 address and receiver port. Support has the full steps.</item>
+        <item>Console play needs a separate compatible adaptive controller and bridge device. Go to the Support tab to find links to the GitHub connections. The documented Pico W route uses an Xbox Adaptive Controller. Check the PlayStation section before buying hardware; that route is not the same.</item>
+    </string-array>
+    <string name="help_pc_heading">Wireless Windows PC connection</string>
+    <string name="help_pc_body">1. Install the free receiver software on your Windows PC using the linked setup guide. The receiver and its virtual controller driver are required.\n\n2. Run the receiver and leave it open. Allow it through Windows Firewall on your private home network.\n\n3. Connect the phone and PC to the same network. Find the PC&#8217;s IPv4 address and the listening port shown by the receiver (the packaged receiver defaults to 42734). Do not use the phone&#8217;s address or a public internet address.\n\n4. Open connection settings, choose Windows, enter that IP address and port, then connect. Test A and a stick before opening a game.\n\nNo extra bridge hardware is needed. Entering an IP alone cannot work unless the compatible receiver is running. Game and keyboard/mouse support depends on the receiver and game.</string>
+    <string name="help_console_heading">Xbox and PlayStation</string>
+    <string name="help_console_body">Xbox: use a Raspberry Pi Pico W or Pico WH with the phone bridge firmware, an Xbox Adaptive Controller, a data-capable micro-USB cable and the controller&#8217;s documented external power supply. The original Pico without W and Pico 2 W are not interchangeable with this firmware.\n\nThe phone and Pico use the same home network. Connect the phone Pico to the Adaptive Controller&#8217;s left USB port. The setup guide explains firmware, IP address and SCX2 settings, plus the Xbox X1/X2 mapping used for full-press LT/RT. USB full-press mode does not supply partial trigger pressure.\n\nA separate Pico W can turn a compatible Permobil Omni2 Bluetooth mouse joystick into the right stick. Read the chair bridge guide before pairing. Existing switches can remain connected directly to the adaptive controller.\n\nPlayStation: the current Pico-to-Xbox-Adaptive-Controller route does not directly connect to a Sony Access controller. An appropriate console-compatible adapter route is needed and has not been verified by this project. Check the FAQ and the adapter maker&#8217;s current requirements before buying or connecting anything.</string>
+    <string name="help_learn_heading">Learn at your own pace</string>
+    <string name="help_learn_body">Replay the picture tour, watch the silent beginner videos or read the setup FAQ. The videos demonstrate the iPhone app; Android has many matching controls but its menus and available options can differ.\n\nStart in Practice, change one control at a time and save a backup before experimenting. If a held action surprises you, use Release all. Opening Support releases phone actions without changing your saved profiles or receiver settings.</string>
+</resources>

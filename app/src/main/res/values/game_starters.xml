@@ -1,0 +1,16 @@
+<resources>
+    <string name="game_starters">Game starters</string>
+    <string name="starter_intro">Choose a layout to start playing. It opens an editable copy. Button assignments depend on the game.</string>
+    <string name="starter_standard">Use standard controller</string>
+    <string name="starter_shooter">Shooter</string>
+    <string name="starter_shooter_description">Move, aim, fire and reload.</string>
+    <string name="starter_racing">Racing</string>
+    <string name="starter_racing_description">Steer, accelerate, brake and use the handbrake.</string>
+    <string name="starter_sports">Sports</string>
+    <string name="starter_sports_description">Move, pass, shoot and sprint.</string>
+    <string name="starter_open_world">Open World</string>
+    <string name="starter_open_world_description">Move, look around, interact and jump.</string>
+    <string name="starter_opened">%1$s is ready. Find it again in Profiles.</string>
+    <string name="starter_open_failed">Could not open the starter layout. You can try again.</string>
+    <string name="starter_save_needed">Save your current layout under a new name before choosing a starter.</string>
+</resources>
