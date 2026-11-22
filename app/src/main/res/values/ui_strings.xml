@@ -8,7 +8,7 @@
     <string name="ui_player_section">PLAYER</string>
     <string name="ui_server_host">Server IP address</string>
     <string name="ui_server_port">Port</string>
-    <string name="ui_usb_tether">USB tether mode</string>
+    <string name="ui_usb_tether">USB tether mode (Windows)</string>
     <string name="ui_player_one">Player 1</string>
     <string name="ui_player_two">Player 2</string>
     <string name="ui_reconnect">Reconnect automatically</string>
