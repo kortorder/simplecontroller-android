@@ -869,7 +869,7 @@ class MainActivity : AppCompatActivity(), LayoutManager.LayoutCallback {
                 NetworkClient.ConnectionStatus.ERROR -> "Stopped"
                 else -> "Disconnected"
             }
-            NetworkClient.OutputMode.WINDOWS -> "Windows"
+            NetworkClient.OutputMode.WINDOWS -> "PC / Mac"
             NetworkClient.OutputMode.LEGACY_CB -> "Legacy bridge"
         }
         val camera = NetworkClient.cameraFollowSnapshot.value
@@ -980,6 +980,7 @@ class MainActivity : AppCompatActivity(), LayoutManager.LayoutCallback {
     private fun savedEndpoint(mode: NetworkClient.OutputMode): Pair<String, Int> {
         val defaultHost = if (mode == NetworkClient.OutputMode.WINDOWS) "10.0.2.2" else ""
         val defaultPort = when (mode) {
+            NetworkClient.OutputMode.WINDOWS -> 42734
             NetworkClient.OutputMode.SCX2 -> 42736
             NetworkClient.OutputMode.LEGACY_CB -> 9010
             else -> 9001
@@ -1106,7 +1107,7 @@ class MainActivity : AppCompatActivity(), LayoutManager.LayoutCallback {
 
         val destinations = listOf(NetworkClient.OutputMode.PRACTICE, NetworkClient.OutputMode.WINDOWS,
             NetworkClient.OutputMode.LEGACY_CB, NetworkClient.OutputMode.SCX2)
-        val labels = listOf("Practice — nothing is sent", "Windows receiver", "Legacy ConsoleBridge (CBv0)", "Pico W / Xbox bridge (SCX2)")
+        val labels = listOf("Practice — nothing is sent", getString(R.string.pc_receiver_destination), "Legacy ConsoleBridge (CBv0)", "Pico W / Xbox bridge (SCX2)")
         val target = Spinner(this).apply {
             adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, labels)
             setSelection(destinations.indexOf(initialMode))
@@ -1128,6 +1129,8 @@ class MainActivity : AppCompatActivity(), LayoutManager.LayoutCallback {
             text = "USB buttons: full presses through X1/X2 on the Adaptive Controller. Adjustable (circuit): separate trigger hardware. USB adjustable: your chosen pressure through Cronus Zen with matching Pico firmware. Saved layouts stay unchanged."
         }
         targetContainer.addView(triggerHelp, 4)
+        val pcHelp = TextView(this).apply { setText(R.string.pc_receiver_capabilities) }
+        targetContainer.addView(pcHelp, 5)
 
         // Add radio buttons for player selection
         val radioPlayer1 = dialogView.findViewById<RadioButton>(R.id.radioPlayer1)
@@ -1158,6 +1161,7 @@ class MainActivity : AppCompatActivity(), LayoutManager.LayoutCallback {
                 pressure.visibility = if (mode == NetworkClient.OutputMode.SCX2) View.VISIBLE else View.GONE
                 triggerLabel.visibility = pressure.visibility
                 triggerHelp.visibility = pressure.visibility
+                pcHelp.visibility = if (mode == NetworkClient.OutputMode.WINDOWS) View.VISIBLE else View.GONE
                 checkAutoReconnect.isEnabled = mode == NetworkClient.OutputMode.WINDOWS || mode == NetworkClient.OutputMode.LEGACY_CB
                 radioPlayer1.isEnabled = mode == NetworkClient.OutputMode.WINDOWS
                 radioPlayer2.isEnabled = mode == NetworkClient.OutputMode.WINDOWS
