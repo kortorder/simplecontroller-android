@@ -40,8 +40,8 @@ android {
             dimension = "distribution"
             applicationId = "io.github.kortorder.simplecontroller.preview"
             targetSdk = 36
-            versionCode = 31
-            versionName = "0.24.0-preview9"
+            versionCode = 32
+            versionName = "0.24.1-preview10"
             resValue("string", "app_name", "Simple Controller Preview")
         }
         create("sideload") {
