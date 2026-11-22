@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:clipToPadding="false"
+    android:background="@color/ui_surface">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingBottom="12dp">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/ui_connection_intro"
+            android:textColor="@color/ui_text_muted"
+            android:layout_marginBottom="16dp" />
+        <Button
+            android:id="@+id/buttonUsbTetherMode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:text="@string/ui_usb_tether" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/ui_receiver_section"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.08" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:labelFor="@id/editServerHost"
+            android:text="@string/ui_server_host" />
+        <EditText
+            android:id="@+id/editServerHost"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:singleLine="true" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:labelFor="@id/editServerPort"
+            android:text="@string/ui_server_port" />
+        <EditText
+            android:id="@+id/editServerPort"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:singleLine="true"
+            android:layout_marginBottom="20dp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/ui_player_section"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.08" />
+        <RadioGroup
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp">
+            <RadioButton
+                android:id="@+id/radioPlayer1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:minHeight="52dp"
+                android:layout_weight="1"
+                android:text="@string/ui_player_one"
+                android:textColor="@color/ui_text"
+                android:buttonTint="@color/ui_accent"
+                android:checked="true" />
+            <RadioButton
+                android:id="@+id/radioPlayer2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:minHeight="52dp"
+                android:layout_weight="1"
+                android:text="@string/ui_player_two"
+                android:textColor="@color/ui_text"
+                android:buttonTint="@color/ui_accent" />
+        </RadioGroup>
+        <CheckBox
+            android:id="@+id/checkboxAutoReconnect"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/ui_reconnect" />
+    </LinearLayout>
+</ScrollView>
