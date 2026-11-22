@@ -205,7 +205,7 @@ private class HelpIllustration(context: Context) : View(context) {
         3 -> "Picture: an aiming pad and a pad that combines acceleration with steering."
         4 -> "Picture: hold, repeat and a sequence of button actions."
         5 -> "Picture: a small button moving to a comfortable position on the phone."
-        6 -> "Picture: a phone connects over the home network to a Windows PC running the receiver."
+        6 -> "Picture: a phone connects over the home network to a Windows PC or Mac running the receiver."
         else -> "Picture: phone, Wi-Fi Pico bridge and compatible adaptive controller connect to a console."
     }
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -247,7 +247,7 @@ private class HelpIllustration(context: Context) : View(context) {
             2 -> { circle(105f,95f,62f,blue); circle(105f,95f,43f); circle(105f,95f,21f); stroke(accent,5f); canvas.drawLine(105f,95f,105f,35f,p); fill(accent);canvas.drawCircle(105f,35f,10f,p); label("Jump",230f,46f,20f);label("Run",230f,96f,20f);label("Move",230f,143f,20f) }
             3 -> { circle(80f,82f,45f); stroke();canvas.drawLine(45f,82f,115f,82f,p);canvas.drawLine(80f,47f,80f,117f,p);label("Aim + fire",80f,150f,18f);round(185f,40f,120f,84f);arrow(202f,82f,288f);label("Drive + steer",245f,150f,18f) }
             4 -> { circle(55f,64f,27f);label("HOLD",55f,69f,13f);circle(170f,64f,27f);label("REPEAT",170f,69f,12f);circle(285f,64f,27f);label("MACRO",285f,69f,12f);label("A",90f,145f,24f);arrow(115f,137f,150f);label("A",175f,145f,24f);arrow(200f,137f,235f);label("B",260f,145f,24f) }
-            6 -> { phone(30f,35f,62f,110f);arrow(115f,85f,175f);round(195f,30f,120f,88f);stroke();canvas.drawLine(185f,130f,325f,130f,p);label("IP address",145f,63f,12f);label("Phone",61f,168f,17f);label("PC receiver",255f,158f,17f) }
+            6 -> { phone(30f,35f,62f,110f);arrow(115f,85f,175f);round(195f,30f,120f,88f);stroke();canvas.drawLine(185f,130f,325f,130f,p);label("IP address",145f,63f,12f);label("Phone",61f,168f,17f);label("PC / Mac",255f,158f,17f) }
             else -> { phone(15f,40f,52f,90f);arrow(78f,85f,110f);round(121f,57f,57f,55f,accent);label("Pico W",150f,145f,16f);arrow(190f,85f,220f);round(231f,42f,95f,85f);circle(251f,84f,10f);circle(286f,84f,10f);label("Adaptive",279f,151f,15f);label("controller",279f,171f,15f);label("Phone",41f,153f,15f) }
         }
         canvas.restore()

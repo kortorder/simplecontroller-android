@@ -158,7 +158,7 @@ class ControlViewHelper(
 
                 override fun onCameraFollow(command: String) {
                     if (NetworkClient.outputMode == NetworkClient.OutputMode.SCX2) {
-                        Toast.makeText(context, "Camera Follow is available in Practice or through the Windows receiver.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Camera Follow is available in Practice or through the PC receiver.", Toast.LENGTH_SHORT).show()
                         return
                     }
                     UdpClient.setCameraFollowStrength(model.cameraFollowStrengthPercent)
@@ -308,7 +308,7 @@ class ControlViewHelper(
             upperCommand == "CAMERA_FOLLOW:0"
         ) {
             if (NetworkClient.outputMode == NetworkClient.OutputMode.SCX2) {
-                Toast.makeText(context, "Camera Follow is available in Practice or through the Windows receiver.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Camera Follow is available in Practice or through the PC receiver.", Toast.LENGTH_SHORT).show()
                 return
             }
             // Turbo and hold callbacks may call firePayload repeatedly. Camera Follow is
