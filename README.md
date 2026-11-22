@@ -1,24 +1,22 @@
 # Simple Controller for Android
 
-**Install on Android:** [Download the community APK](SimpleController-Android-0.24.0-preview9.apk). Install it over an earlier community preview to retain its saved profiles.
-
-**Start here:** [Connection FAQ](FAQ.txt) · [Beginner videos](videos/README.md) · [Windows PC receiver download](PC-Receiver.zip).
-
-**Developer downloads:** [Version 0.24.0-preview9 source ZIP](SimpleController-Android-0.24.0-preview9-source.zip) · [Git bundle](SimpleController-Android-0.24.0-preview9-source.bundle) · [SHA-256 checksums](SOURCE-SHA256SUMS.txt).
-
 Simple Controller is a customizable controller built for playing with one finger. Make your own layouts with buttons, sticks, touchpads and pages, or start with the included GTA 6 Prep layout. Try controls in Practice before connecting a receiver.
 
 ## Install the Android community preview
 
-The community APK is **SimpleController-Android-0.24.0-preview9.apk**. Downloads and beginner videos are on [community downloads](https://github.com/kortorder/simplecontroller-android/releases).
+The community APK is **SimpleController-Android-0.24.1-preview10.apk**. Downloads and beginner videos are on [community downloads](https://github.com/kortorder/simplecontroller-android/releases).
 
-Download the APK on **Android 7 or newer**, open it and follow the phone’s installer prompts. If prompted, allow the app you used to open this APK to install it. Version **0.24.0-preview9 (31)** uses the same community application ID as earlier previews. Install it over that preview to keep its saved data. The community preview also installs alongside the original app, which has its own application ID and profiles.
+Download the APK on **Android 7 or newer**, open it and follow the phone’s installer prompts. If prompted, allow the app you used to open this APK to install it. Version **0.24.1-preview10 (32)** uses the same community application ID as earlier previews. Install it over that preview to keep its saved data. The community preview also installs alongside the original app, which has its own application ID and profiles.
 
 ## Beginner help and PC safety in 0.24
 
-New installations open an eight-page illustrated tour with Next, Back and Skip. Existing profiles open normally. Use **Support** in Bridge menu or All controls to replay the tour, read Windows PC and console setup instructions, or open the FAQ, receiver download and videos.
+New installations open an eight-page illustrated tour with Next, Back and Skip. Existing profiles open normally. Use **Support** in Bridge menu or All controls to replay the tour, read Windows, Mac and console setup instructions, or open the FAQ, receiver download and videos.
 
 Windows PC play needs the free [receiver software](receiver/) on the same network; enter its printed IPv4 address and port (42734 by default). No Pico or adaptive controller is needed for this route. With the updated receiver, Android negotiates a three-second input lease and renews it while active. Lost acknowledgements release local actions and reconnect from neutral. Old receiver compatibility remains available with a visible warning that Wi-Fi-loss cleanup is unavailable.
+
+Mac play now uses the same free package: start **Start-Mac-Receiver.command** on macOS 13 or later with Python 3.10 or later, grant the named Terminal/Python process Accessibility permission, then choose **Windows / Mac receiver** in the app and enter the Mac's IPv4 address and port **42734**. Existing layouts map left stick to WASD, right stick to mouse movement, LT to right-click and RT to left-click. The D-pad and other buttons map to configurable keys. This preserves saved phone layouts and the Windows connection.
+
+The Mac receiver sends keyboard and mouse input, **not a native virtual Xbox gamepad**. Movement keys and trigger clicks are digital; partial trigger pressure and analog steering are not reproduced. Use games that accept keyboard and mouse, and match the game's key bindings. No Pico, Windows driver or paid receiver is needed. [Mac setup and mappings](receiver/README.md) · [Connection FAQ](FAQ.txt).
 
 This preview preserves the 0.23 Android feature set and adds help and PC protection. It does not claim complete parity with later iPhone releases. The instructional videos demonstrate the iPhone app; consult [FAQ.txt](FAQ.txt) for platform differences and supported hardware.
 

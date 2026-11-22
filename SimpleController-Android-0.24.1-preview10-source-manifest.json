@@ -1,0 +1,2222 @@
+{
+  "platform": "android",
+  "version": "0.24.1-preview10",
+  "build": 32,
+  "name": "SimpleController-Android-0.24.1-preview10-source",
+  "snapshot_commit": "fa143358c220326d5a7d5c65100b44f7f3cd60b7",
+  "files": 366,
+  "bytes": 4300842,
+  "omitted": [
+    "PC-Receiver.zip",
+    "SOURCE-SHA256SUMS.txt",
+    "SimpleController-Android-0.24.0-preview9-source-manifest.json",
+    "SimpleController-Android-0.24.0-preview9-source.bundle",
+    "SimpleController-Android-0.24.0-preview9-source.zip",
+    "SimpleController-Android-0.24.0-preview9.apk",
+    "videos/Simple-Controller-App-Store-Preview.mp4",
+    "videos/Simple-Controller-Beginner-Guide.mp4"
+  ],
+  "findings": [],
+  "frozen_app_inputs_verified": 247,
+  "manifest": [
+    {
+      "path": ".gitignore",
+      "bytes": 172,
+      "sha256": "b13b864de3597a4e1b4b7b9b052a35a4315d1e89c7ce5c220387c5da48a1109a",
+      "mode": "0o644"
+    },
+    {
+      "path": "AIM_CONTROL_OPTIONS.md",
+      "bytes": 5527,
+      "sha256": "f55e93d12c29ef746f115b36779ddf4fcebef002e0c40ca000fb51a35a11eec0",
+      "mode": "0o644"
+    },
+    {
+      "path": "BRIDGE_CONNECTION_BEHAVIOR.md",
+      "bytes": 3574,
+      "sha256": "7dd3c6a8416e8b729066286c3d0e54faa7aba6795e1fe4d057a44864ac368f5e",
+      "mode": "0o644"
+    },
+    {
+      "path": "BUTTON_AIM_GAME_MOUSE.md",
+      "bytes": 4238,
+      "sha256": "0a4c0bc7aebb683750c0124e292d29000f76ff8de2da08d881b03e5ce3f3c46d",
+      "mode": "0o644"
+    },
+    {
+      "path": "CAMERA_FOLLOW_CONTROLS.md",
+      "bytes": 6590,
+      "sha256": "b8d5fd07641560d05a1627a2842bfd573586ac38866038ff02aeff1a1c83d2af",
+      "mode": "0o644"
+    },
+    {
+      "path": "Configure-Mac-Receiver.command",
+      "bytes": 278,
+      "sha256": "d0790b37c040f9ef9fcbfd6b62054f7639e683fc75bbd54d59820b8d62e6470b",
+      "mode": "0o755"
+    },
+    {
+      "path": "FAQ.txt",
+      "bytes": 20288,
+      "sha256": "561225768df064377db7c49679a9bbe5a16d75b9337725a94b4d610b06c00afd",
+      "mode": "0o644"
+    },
+    {
+      "path": "FLOATING_CONTROLS.md",
+      "bytes": 20981,
+      "sha256": "efd87bea03c95fd768f03e05d978474bb25574f15927682f343956839a33a58c",
+      "mode": "0o644"
+    },
+    {
+      "path": "FLOATING_RING_OPTIONS_PLAIN_ENGLISH.txt",
+      "bytes": 38263,
+      "sha256": "695dfa66f472a8f89afe9e45015e5703a7b2e4bbd06b6c1c1e28cc2b3556c969",
+      "mode": "0o644"
+    },
+    {
+      "path": "MACRO_MODE_AND_PAYLOAD_PORTING.md",
+      "bytes": 9643,
+      "sha256": "6926b50f189dd17b8aff03cb0be28dae8a856727d418dfffa71b45e452031705",
+      "mode": "0o644"
+    },
+    {
+      "path": "Mac-Mapping.json",
+      "bytes": 570,
+      "sha256": "e09397317f0ec2b42726534162cb039b010d1f132f33defd3c53dfd8933a8656",
+      "mode": "0o644"
+    },
+    {
+      "path": "PAYLOAD_MODIFIERS_AND_STAGE_TUNING.md",
+      "bytes": 10815,
+      "sha256": "532eb20d6a7636fc952f4c002198eecee7cbea0b84921d724d744a0859028002",
+      "mode": "0o644"
+    },
+    {
+      "path": "PHONE_OUTPUT_PROTOCOL.md",
+      "bytes": 7736,
+      "sha256": "799ad6dfac2882c7245bb0083bac20694c2a31c0b05a4b8bd4a10eda1233c5a6",
+      "mode": "0o644"
+    },
+    {
+      "path": "PROFILE_TRANSFER_FORMAT.md",
+      "bytes": 13374,
+      "sha256": "0529a4adfb4993a022cdc9f4ac06a2d062ad72e8d9cbc003dd2a07fcbe58c380",
+      "mode": "0o644"
+    },
+    {
+      "path": "README.md",
+      "bytes": 10323,
+      "sha256": "90f3e6be2d8d933a25ae16247b967cdd9e340380a0c57911dfe24639c6278de4",
+      "mode": "0o644"
+    },
+    {
+      "path": "Setup-Windows-Receiver.bat",
+      "bytes": 233,
+      "sha256": "c2ab1ebb36310fa7e8a98177075e52f9ab7f9bb26c1aa4de94256832b4800f7b",
+      "mode": "0o644"
+    },
+    {
+      "path": "Start-Mac-Receiver.command",
+      "bytes": 359,
+      "sha256": "af140761a6c907c10a7b2ccd103f5e0ad8c3ae8551ca055977557380e6dbf71f",
+      "mode": "0o755"
+    },
+    {
+      "path": "Start-Windows-Receiver.bat",
+      "bytes": 225,
+      "sha256": "056bf540aeef4ca399ff5fff4e8ef69be971c0e420fbe51091964fcf8f69fb62",
+      "mode": "0o644"
+    },
+    {
+      "path": "THIRD-PARTY-NOTICES.md",
+      "bytes": 2355,
+      "sha256": "19cf89bf353a3dad181388bfc6a329d93da88e585dfc9cd7f74deff331ca88bc",
+      "mode": "0o644"
+    },
+    {
+      "path": "TOUCH_AIM_GAME_MOUSE.md",
+      "bytes": 4456,
+      "sha256": "a054f2cb244a514e04beec71633ddea2aad197701298ab6673ea59e6c12b790c",
+      "mode": "0o644"
+    },
+    {
+      "path": "TOUCH_SENSOR_FPS_NOTES.md",
+      "bytes": 15706,
+      "sha256": "f44d609ecc7637fc9204d6db1a590957d63f6bcb11caa3cfeb800e016539db71",
+      "mode": "0o644"
+    },
+    {
+      "path": "USB_TRIGGER_OUTPUT.md",
+      "bytes": 4250,
+      "sha256": "74da7d4eeea533468394e7eb87b132b1d5d5aaab90ef2dce01c91050e0ec8b9b",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/.gitignore",
+      "bytes": 19,
+      "sha256": "91efaa1b8135c30bfb7ee36cdadce026e53e440b4da23e3f239e368b98377520",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/build.gradle.kts",
+      "bytes": 2921,
+      "sha256": "e334e805b3510f4afb16e0ab600a5e688134d9a590209464bb3a11efcfc5ad38",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/proguard-rules.pro",
+      "bytes": 750,
+      "sha256": "56fd960cf225f6ca40f982b13a5dbb0d8bc3dfde13ff76422825c6070d0a1890",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/androidTest/java/com/example/simplecontroller/ExampleInstrumentedTest.kt",
+      "bytes": 774,
+      "sha256": "d533924542b149704bd381a5d16b956382c42c70039018b513f296764a56b523",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/androidTest/java/com/example/simplecontroller/io/GameStartersInstrumentedTest.kt",
+      "bytes": 3173,
+      "sha256": "afcc4e4ee9fa85b40c2c1140b301fe3fd4c7c522e42d0c3a393fa81126fc838f",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/androidTest/java/com/example/simplecontroller/net/MacReceiverInstrumentedTest.kt",
+      "bytes": 4354,
+      "sha256": "30f14d59becb0393930767137df3ac2810d417488760f3c37c1786ce85699067",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/androidTest/java/com/example/simplecontroller/net/PhoneReceiverLeaseInstrumentedTest.kt",
+      "bytes": 11041,
+      "sha256": "239ab37c3cc4a35188441708525ac3e9e56c0f0ec834948142704e031af4a605",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/androidTest/java/com/example/simplecontroller/ui/BridgeReconnectInstrumentedTest.kt",
+      "bytes": 31977,
+      "sha256": "c823fa1995ed9c8edfdca3ee9965ea4fe279b4ee47ac815dd19dd292a71f35a2",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/androidTest/java/com/example/simplecontroller/ui/ButtonDirectionalGestureInstrumentedTest.kt",
+      "bytes": 4738,
+      "sha256": "33b5c96497c941d70cecaac786c5291d82a578d7d7c51a9d01e8b4278821b040",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/androidTest/java/com/example/simplecontroller/ui/CommunityHelpInstrumentedTest.kt",
+      "bytes": 6052,
+      "sha256": "06548f5ecc4818f78bb7debd97e80bd6f750ea291f91e493a7d61f067cba431a",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/androidTest/java/com/example/simplecontroller/ui/PracticeControlInstrumentedTest.kt",
+      "bytes": 18360,
+      "sha256": "171842f6105866e8f04f4ea9384ede1512f6dca9fd7f86c8662570752efc94c9",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/androidTest/java/com/example/simplecontroller/ui/RetainedStickInstrumentedTest.kt",
+      "bytes": 10547,
+      "sha256": "f955f994a5efc7174a21bbaa86922f025a34fc955a749ec4c9cdbe2a94cc92c1",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/androidTest/java/com/example/simplecontroller/ui/SafeControlAreaInstrumentedTest.kt",
+      "bytes": 6495,
+      "sha256": "d02657bdd6a85faf3cd72caf855b4c3b115bd4b4cefb03ae69249560b20c226e",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/androidTest/java/com/example/simplecontroller/ui/SwipePracticeInstrumentedTest.kt",
+      "bytes": 6801,
+      "sha256": "4ea7f4038f4ad407315eb153e3c23560e9d550c262462bd2c998cc0c87ea5610",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/AndroidManifest.xml",
+      "bytes": 1513,
+      "sha256": "112635a30e91d78a8a8977f71efa7e9d6e0c857e921a110a3029c72ba14ba007",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/assets/starters/open_world.json",
+      "bytes": 19069,
+      "sha256": "3e11d8b19bfb6c9dfc8d7ff3ba84292d7950f8050ba2927e7fe54c35361d83f5",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/assets/starters/racing.json",
+      "bytes": 12590,
+      "sha256": "704fd2e440b921d65b3d0b0809839b6811f8075340ffb56fedadc9c3cb1479f0",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/assets/starters/shooter.json",
+      "bytes": 13886,
+      "sha256": "42dd55f6f5388f543ce7668470b14a74095d6b04ecf021b1c3d92fdb8fcfcab5",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/assets/starters/sports.json",
+      "bytes": 11155,
+      "sha256": "4e634e20dca39908e31cde1a8a59ae604d68a66de162aff805e7b44616b2f781",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/CbProtocol.kt",
+      "bytes": 8279,
+      "sha256": "221553095d2feaae11ca407f1503e17f02289296023705090a67513ce9859df5",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/MainActivity.kt",
+      "bytes": 160405,
+      "sha256": "83c77503da38ac2c9cc2958d5c30faa8a04c8cf87024e5476d81b421bf76d00c",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/NetworkClient.kt",
+      "bytes": 45228,
+      "sha256": "54c44eb0bba185350259984aa70a795c5812aadf27fce36b28fd3bd6d3b2832a",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/PhoneOutputCoordinator.kt",
+      "bytes": 30319,
+      "sha256": "84a56dd209412f1f551b4eda7ae7980e7b581c19be00debd808edf47ed08175b",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/PhoneReceiverLease.kt",
+      "bytes": 1575,
+      "sha256": "cc6baed7f39735f0628c38d6d6e4950094b4e2827cbd3baa117a2a504ee4a6f1",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ReceiverSocketCleanup.kt",
+      "bytes": 744,
+      "sha256": "986aa6dfd45cf979684de0f8d4f6c8ce5b9c09fd9418dc74323c55da765d6733",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/RefactoredMainActivity.kt",
+      "bytes": 8160,
+      "sha256": "ca307bc8220972d4ea838b58967922449266adec0b2cdb9ab1ae263d993cdf61",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ReleaseAllProtocol.kt",
+      "bytes": 1304,
+      "sha256": "0aa6491587efc0a370853d8bc509df6f1a8ddd92722b344a0f1a96554709226d",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/TouchDiagnosticActivity.kt",
+      "bytes": 28105,
+      "sha256": "be13efaa9265361c06fc1bc019e8c0cd1659f58df3d73668682354631b5b114a",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/UdpClient.kt",
+      "bytes": 46818,
+      "sha256": "9dbc1574937cfd02158f37f9ab156510f18ad7c102c85e679cc8f042cd68d1e0",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/UdpHeartbeat.kt",
+      "bytes": 1094,
+      "sha256": "970d448013854f7e53715097d89e18ea00a2bc4b79714b6d2039319956e948e8",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/io/ControlSettingsProfileStores.kt",
+      "bytes": 12603,
+      "sha256": "6b039836b7f065840879ff726ae88b568d94b73cc143f4d46510e13d1098e781",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/io/ControllerProfileBulkDelete.kt",
+      "bytes": 1193,
+      "sha256": "0d375853e56b4d9cfaa2c617f2d68fceddbd3cbc77a1c407ed87a5c5d947a5ca",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/io/FloatingRingPresetStore.kt",
+      "bytes": 4844,
+      "sha256": "6a051298948ace247dc2aeaf6b060d18dba1a3ec4b0cb68c9747fad78558622c",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/io/GameStarters.kt",
+      "bytes": 2073,
+      "sha256": "2bc7e36b920f092f6ecb3400b31ce70f2807e47dc32c4dfdb6ef22e63e12e8a7",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/io/LayoutManager.kt",
+      "bytes": 21097,
+      "sha256": "219105fe6da506d1e89779054fd917f78a61ac35d1b47271fdeb7d44c258e363",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/io/LayoutStorage.kt",
+      "bytes": 42383,
+      "sha256": "afec6c386f6729da4765386f8f63387897de84c6328a3503e531c37e66e106aa",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/io/PayloadFeatureCompatibility.kt",
+      "bytes": 5530,
+      "sha256": "d319e036e0a2abba561b04203863f8f8dfc5e138a5fad44356bf70961fb1972f",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/io/ProfileBackup.kt",
+      "bytes": 30347,
+      "sha256": "10cf303d6884f9e46f27d815a944e33cceedccdedfbad1b395ebadc3168ec564",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/io/TouchAimCalibrationStore.kt",
+      "bytes": 7727,
+      "sha256": "b90f7af2123fb0f5435cc78168977e907747adbc5c85032aa5fc9bcdef437656",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/ButtonAimPayloadPolicy.kt",
+      "bytes": 6640,
+      "sha256": "93b541c060125dd046eb0ea7b169bf75c9e07e8a8e793eb0b36b8ad193db6726",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/ButtonAimProfile.kt",
+      "bytes": 14039,
+      "sha256": "ebf060098b9f96809b927b71d84ed0b68e5c1f9e47084967ed28e3fe279061b3",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/Control.kt",
+      "bytes": 12445,
+      "sha256": "b07364329d1f16c5c0147e3c52050686de93803fec0faafddeed2c94564bcfee",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/ControllerProfile.kt",
+      "bytes": 9912,
+      "sha256": "ac97dfbf1ec8c1ee7ba1651bb0719387dfddd206c523166bb4c565c46c98053e",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/ExtendedBoostSettings.kt",
+      "bytes": 4982,
+      "sha256": "d82bcd3538a64cd64b8a1fe7e8f5aab276d93bbbf9eee1abf63b174bfcee1729",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/FloatingControls.kt",
+      "bytes": 34490,
+      "sha256": "9fde1823c9741cc67c82168d0ae6743a1a283133cde1bdaad4d78f3164ea3be6",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/FloatingOrientation.kt",
+      "bytes": 1925,
+      "sha256": "24cc001c074a23cf37d96c1b30a3d0d0fe668aa25af4c444c006f0c86b4576d3",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/FloatingRingPreset.kt",
+      "bytes": 4708,
+      "sha256": "a5746db777eadb9f5170bbc0ca74661b4087efe527e3373be1d1d96e0a561cdb",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/OrientationLayout.kt",
+      "bytes": 6390,
+      "sha256": "39e4cb1909ade53bf79663638c17822fa1c602201465e084871a1a648b794932",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/OrientationPreferenceStore.kt",
+      "bytes": 716,
+      "sha256": "ba8272086aa004466939edde1ff25b4f59fb8df883761c14efa208ea44cb2458",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/PayloadModifiers.kt",
+      "bytes": 8077,
+      "sha256": "5b8bd6f8e2a45f6caa325e04b258b29bda5df267b08f053dad93063ea3baffb3",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/PayloadProfileFeatures.kt",
+      "bytes": 2390,
+      "sha256": "99d4142ce37c57e0ca60a72f44ee1fa9b7bf276133b58badd28e41fb802eb9fe",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/StickDirectionalProfile.kt",
+      "bytes": 6853,
+      "sha256": "efe7cc5366202ed875ec4a67273d5876aa44375f1d2a37f864478e20a5ebfd64",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/TouchAimCalibration.kt",
+      "bytes": 7969,
+      "sha256": "68a870ea676ef8e3a07412a5a59c4baf691befdcb22e867075f21578c1decd30",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/model/TouchAimManualProfile.kt",
+      "bytes": 14589,
+      "sha256": "08616e41f77cd0985ae8b53515e03bc02d8987af956bdd2dc358e5e4c4f11e7f",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/net/CameraFollowCommands.kt",
+      "bytes": 1168,
+      "sha256": "d6b4dff7c5af815fedcb9b1c61d70e753acc9628eeee8e53fe1dbbe1b7104241",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/net/MouseDeltaCommand.kt",
+      "bytes": 540,
+      "sha256": "96b6ddc0c2693a4adc32c8caafa93060b5a5648f9e622f82a2ebdda057f6ce3d",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/net/scx2/BridgeConnectionIntent.kt",
+      "bytes": 3876,
+      "sha256": "bf2cc75371697073246204bee1a860cf7b7cd5547a69bcbc44f2fe2971fa926d",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/net/scx2/BridgeTriggerMode.kt",
+      "bytes": 1318,
+      "sha256": "ea1dac22cce82873780bd0dde9cb8cf153190d2bcc8aa911cf679f2a6d4bb131",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/net/scx2/CameraFollowPracticeMachine.kt",
+      "bytes": 10447,
+      "sha256": "94f7d263ac34b752663036b8c11012fb5138f4eb57f03b03bee23b7dcc8d6cd0",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/net/scx2/PracticeCameraProjection.kt",
+      "bytes": 2252,
+      "sha256": "3900cd4e6d7ad37f44ffb01047d3c587675591d333523c38736a2ad3043727e3",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/net/scx2/Scx2CanonicalOutput.kt",
+      "bytes": 6494,
+      "sha256": "27719ac944eb14ae1e1124512814a22ac569055ecdf4d93ffa3afcfd8f53c55e",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/net/scx2/Scx2ClientMachine.kt",
+      "bytes": 9229,
+      "sha256": "190072ecbc9de881548b550b4565cd689543c4c55c70fa7386a03e45effe8836",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/net/scx2/Scx2Protocol.kt",
+      "bytes": 7494,
+      "sha256": "888534929dbd0e19e97c1cd6d6e9c469e0888b0eaaa58c4ae3b8fd2258e072d7",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/net/scx2/Scx2UdpSession.kt",
+      "bytes": 5923,
+      "sha256": "383613119e270fb75f1048d1319d57a93b01f4374b098d5eca880f0151f8efe1",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/AimOutputController.kt",
+      "bytes": 26068,
+      "sha256": "0a496a855ef8b3a65a7dfde03d02fbc5f87ade32100e260768761c7b59037cb4",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/AndroidFloatingRingBackend.kt",
+      "bytes": 6784,
+      "sha256": "ecc20bd597cf93d33faf11e241eec21c473d475c403e13750a0ad3266b3dbf47",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/AppUiStyle.kt",
+      "bytes": 2267,
+      "sha256": "0118aa60423feb185086272b9cd766deadb3b5d5c9cfa94021133488b7f5a7f2",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ButtonAimDpadSession.kt",
+      "bytes": 4402,
+      "sha256": "0e5d84af0714e03a2842be64902e9009a999a6ea8a5440944f27963503db2cca",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ButtonAimHandler.kt",
+      "bytes": 46118,
+      "sha256": "a281c580a362cc4b0aeeff37bb07364a6986c6bff2f1d3cb2eee850ae1395238",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ButtonAimPayloadExecutor.kt",
+      "bytes": 47941,
+      "sha256": "2e398902c9501336a4700d671fe8d0c49e80644f0133d6171b0f6e13a935c2ef",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ButtonAutoTapController.kt",
+      "bytes": 4008,
+      "sha256": "9e15d6c2f61c6aec829a07d4f809f1efb87ca206810e649e46c1cbfe6d787340",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ButtonDirectionalGestureHandler.kt",
+      "bytes": 8392,
+      "sha256": "af92b17177a38535f3bd1c966e7efae19100ee30b5fe149e7b306a531a61cc41",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ButtonMacroController.kt",
+      "bytes": 2079,
+      "sha256": "6cd983fa19292053f8be31c0b8645806edb782f28cbfb1711b1957ddf941348a",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/CommunityHelpDialog.kt",
+      "bytes": 15200,
+      "sha256": "610a0fb08a20bff54ed1adcf1041558979c9777e8107f184c6b830a088b4c0b1",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ContinuousSender.kt",
+      "bytes": 5432,
+      "sha256": "4b83d2df1e4ecfb48e4be12a45f0eb9c1222072df6386757b4784938d5db2938",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ControlHitRegion.kt",
+      "bytes": 886,
+      "sha256": "8f9a21951ba52c47e45ccac8974eb7f4589569fb03c2753353464733a34105c1",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ControlTuningInputs.kt",
+      "bytes": 700,
+      "sha256": "47205ef16d0786c4c96f43ecff0263a03f011a780b36979a9e7987ef909ccaf1",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ControlView.kt",
+      "bytes": 77983,
+      "sha256": "fa6907f082873135c335aa7bed281fdd80a650c3f04e3901c7c954b4ae85af08",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ControlViewHelper.kt",
+      "bytes": 30573,
+      "sha256": "3fea08f4678c3a3b229bea36593638f5b8db526d7bf7c9b49eddd1c0f7b6f547",
+      "mode": "0o664"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ControllerToolsDialog.kt",
+      "bytes": 4099,
+      "sha256": "0909a256c5073ad707a7cf7bb7fdf8de7b38c5d28b210fdf7857c850257e513d",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/DirectionalCommandStateController.kt",
+      "bytes": 6453,
+      "sha256": "4e621d00413492c5522b7d8d640aab9c707afd56152c85f854fe5f2af3879155",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/DirectionalStickHandler.kt",
+      "bytes": 15241,
+      "sha256": "f6f57b434e6cf86bc3901a4a25da2ed8510173b5ead8f9014326c85b9338fc4a",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/FloatingActivationEvents.kt",
+      "bytes": 3845,
+      "sha256": "11b4222bea923778a0ee22109a46eeaa9b83de74413cd0c2af8b963de690e59a",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/FloatingControlsController.kt",
+      "bytes": 20611,
+      "sha256": "1d4caf762f60113bcfd3b5e027814e53ea9292e8328b4956f2c48b34c2c4c8fd",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/FloatingControlsEditor.kt",
+      "bytes": 48360,
+      "sha256": "86e24312137918b1eb75763a07b95310ba14bb06614d826dfdfe07ba547ed3f6",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/FloatingPlacement.kt",
+      "bytes": 1877,
+      "sha256": "01309475e780756bf493e602c02e27e6d73c1ce5bc50a16e4dbd61a40c7f7cd0",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/FloatingRingEditOverlay.kt",
+      "bytes": 5184,
+      "sha256": "a65199b3d65cd778a7b294f775534f447ca5824e50c426a2067d1d80339ec52b",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/FloatingRingEditorPreview.kt",
+      "bytes": 8838,
+      "sha256": "d2c105099336a60f982b8060882df1570c26a706daf0a543c8f071fdc81ccdf3",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/FloatingRingGeometry.kt",
+      "bytes": 9897,
+      "sha256": "517bc6943724c593907661f3d915926bcc2be68714946e7401e597cb0243b66c",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/FloatingRingPayloadController.kt",
+      "bytes": 4400,
+      "sha256": "c180f1b94a50868348436f5f869b730bfae5cd8d747eaf1c98742ab93f8fc147",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/FloatingRingStateMachine.kt",
+      "bytes": 49067,
+      "sha256": "f5f5619b5238cfa5cb991281738d838d40cb677f32429a24dff57dd3752333a7",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/FloatingRingView.kt",
+      "bytes": 9876,
+      "sha256": "25aac976e3d9fe69d346aa2ac75bfb54cec9de8e12c405f9a11f2383c0c7a8bb",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/FloatingSelectionSession.kt",
+      "bytes": 829,
+      "sha256": "5e74f570f34f73fa75e692a0ae8ed4ec089e87f934faa3753e6136434b955e82",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/FloatingZoneOutline.kt",
+      "bytes": 5719,
+      "sha256": "86cee3fdd12b1feb79550038290678c89c1ff244902d2b1c12a2e6ae8bcbddfa",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/GameStarterDialog.kt",
+      "bytes": 1721,
+      "sha256": "ff2a219e5632c7242f10d0395814841705083ae8c4a648d79605cc8501d973aa",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/HandlerButtonAimPayloadScheduler.kt",
+      "bytes": 573,
+      "sha256": "bf059d26648579b8f639d0495c11be1a1178ace8e17391205a8f177cc23d4c95",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/HelpOnboardingPolicy.kt",
+      "bytes": 510,
+      "sha256": "369d0da5ca860f9e78fa4ae7fbfe4cf6b2e4864bfd37c837b82f27a5e6736cc0",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/OneShotAlternateStateMachine.kt",
+      "bytes": 3503,
+      "sha256": "bff79bb466535045ba89b44fbd67d8268ab082a9b5342220c7343632c8994644",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/OrdinaryPayloadSequence.kt",
+      "bytes": 3858,
+      "sha256": "c37df43125692bdc2b2f16d1f81d344dbdffd2850e91fb376d7a65fdeec06e3b",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/OrdinaryTriggerController.kt",
+      "bytes": 5090,
+      "sha256": "882000166314f75609325553ee2f269ea1e7b4b3464b6b55da608c072020258b",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/PendingFloatingGesture.kt",
+      "bytes": 4842,
+      "sha256": "0b5dc9234367db7e5c4e92973d2931bfbd83f2897338cbf9ed2d6eed615e91e5",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ProfileSwipePolicy.kt",
+      "bytes": 2931,
+      "sha256": "71c47b163c74200e4c78963a830a98bbec31074040587b31476eac6229164be5",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/PropertySheetBuilder.kt",
+      "bytes": 158212,
+      "sha256": "7e5f6ae8dc4dd3382154e3579211539bf0c7df618826832787de80278614bd00",
+      "mode": "0o664"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/PropertySheetStyle.kt",
+      "bytes": 6672,
+      "sha256": "bdf230175c17a92c078fbe8644fb8256bc7db9549c0adbd60587fc1dd089f068",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ReleaseAllCoordinator.kt",
+      "bytes": 1172,
+      "sha256": "960e71c90329a597464de97403e5dc620f429ef7a499ea835dd9feab409071ec",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/SafeControlAreaGeometry.kt",
+      "bytes": 1577,
+      "sha256": "42068a66c18d4dde3065644d4cb8a7a323bd3d1ea4e721aa2d5f187ae0ee0b44",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/SafeControlAreaLayout.kt",
+      "bytes": 10553,
+      "sha256": "a45da55eecee38e728d555e1fbb8fcd042bc0751d706de61d62abf7613c6c61d",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/StickPlusRepeatController.kt",
+      "bytes": 2249,
+      "sha256": "0d7f864b4cfe7cf10c576574192bd185128afb79084bd8bc44c8bdbed03f7915",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/StickResponseCurve.kt",
+      "bytes": 1173,
+      "sha256": "35a2bdcba88824204d805696b0666024bcc5c1eb730afcc5bf3a5c991d58dac1",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/SwipeHandler.kt",
+      "bytes": 10061,
+      "sha256": "13e65a45f84d41de7c4f8e7b0e1bb59e064e2d1636801771b6307e2987c1c43a",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/ThemeManager.kt",
+      "bytes": 2798,
+      "sha256": "4dd89c89d236b02d40ce2d613b8f9933a9ae5ac6449a2d32bd2de20e5f16aeb6",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/TouchAimCalibrationAnalyzer.kt",
+      "bytes": 22040,
+      "sha256": "a42ed2c74b5a275da42432381c2772115075968cf20862c37f79b23d31f0af70",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/TouchAimCalibrationWizard.kt",
+      "bytes": 35135,
+      "sha256": "3319cac9de6d16e2d4811215e1ff1d027c7d1772d7f2988557ab198d500d8845",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/TouchAimHandler.kt",
+      "bytes": 32239,
+      "sha256": "4448b5efdb19b9a2f90664b650decd97cde33f656807ba5488d6a9f6aa35f794",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/TouchAimLegacyLevels.kt",
+      "bytes": 1469,
+      "sha256": "34f20b71bfe4da70abd83ee7824e968df67b0351fd736a911e2253b3fda70a70",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/TouchAimStageConfirmation.kt",
+      "bytes": 1822,
+      "sha256": "9cc64a5660aabefc643eeae3d43d14a2f8ffbf62fe404e68402527058cafb0c7",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/TouchAimStagePayloadController.kt",
+      "bytes": 4628,
+      "sha256": "b893cce5d098335ba0362713594ec321c7b5538ca2d262f6037e5a61c9a695fc",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/TwoStateTouchAimStateMachine.kt",
+      "bytes": 7220,
+      "sha256": "d9b3ac4f50fa3b54b3fc0b84dc77fa7364381184e4a994f99f77297617ad4fa4",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/java/com/example/simplecontroller/ui/UIComponentBuilder.kt",
+      "bytes": 10050,
+      "sha256": "71af4bf1b78bc4534cc0b7fd6b77b4f9b9626feda952b8153d930cf7294972aa",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/color/app_button_tint.xml",
+      "bytes": 268,
+      "sha256": "f96d97769c7ef53f74adae295a9369f356b5d093e6f9bfa36063a2dcc000895b",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/color/app_control_text.xml",
+      "bytes": 255,
+      "sha256": "6e9f8d24468ef412f7c953dcd3cb623e9e7b45d94aa95ca8bb0f025eb612c80f",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/color/app_switch_thumb_tint.xml",
+      "bytes": 338,
+      "sha256": "d130de860ad5f77ce022f6a8f448ee90a15bf16a8602082c72e8b7ff1a6304e6",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/color/app_switch_track_tint.xml",
+      "bytes": 344,
+      "sha256": "fa4cbca9d332e8e822276a3f7a61c6375b305c74aaed8ad840580ede218d4dd2",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/drawable/connection_status_background.xml",
+      "bytes": 230,
+      "sha256": "5c09f2723c941066ff6dc292060c54c0a36530eac8f30624400f917b6524d610",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_launcher_background.xml",
+      "bytes": 5606,
+      "sha256": "ed423c73a6f40a4d2909f0901e60527b3a807cd59e1b5593bcaae1808b1c6321",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_launcher_foreground.xml",
+      "bytes": 1702,
+      "sha256": "01d1a6a6c1234eb7fe270d097eb283d72b9c95ae5118886f1b6573aad280f1f7",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/layout/activity_main.xml",
+      "bytes": 1126,
+      "sha256": "ed7d44d6ee2770f431c962fcb8d184d89072147f9f44225579e0d2b5d5951aad",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/layout/dialog_connection_settings.xml",
+      "bytes": 3908,
+      "sha256": "dd00e0cf612c78bdc155c92776edf846b47fff47caf3917b987d417d9a5333b5",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/layout/property_sheet_spinner_item.xml",
+      "bytes": 486,
+      "sha256": "3f888ce57b61801ff11389c2a6afd9aa91046412fc7866541b6743246ed1b22b",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/menu/main_menu.xml",
+      "bytes": 362,
+      "sha256": "7865b56c623280096342b257694c95df9a29daf647f59f62ae81b0bf8469680b",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "bytes": 343,
+      "sha256": "88f7653499ef524126ea5018a99baf9cc3269e7e584d6205dfdd76db39f39cc0",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "bytes": 343,
+      "sha256": "88f7653499ef524126ea5018a99baf9cc3269e7e584d6205dfdd76db39f39cc0",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher.webp",
+      "bytes": 1404,
+      "sha256": "dd00996198640ed28fbc09cdcd7a3807cf8707f3eb255b659634da3ca6a6ff01",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher_round.webp",
+      "bytes": 2898,
+      "sha256": "1ed73f5341a69d3b41c7e02e126803f50cc8c3284adf4bbb737f0c93577aef07",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher.webp",
+      "bytes": 982,
+      "sha256": "846219e6f72fe9a6c104ca8919cbee36a101e7d2ff8da9da67b689a5888f060d",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher_round.webp",
+      "bytes": 1772,
+      "sha256": "4e2c58b91de01130e6479e00cbbaaf6e77cd961dd2c8e303cf13cd077fa92632",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher.webp",
+      "bytes": 1900,
+      "sha256": "398340dad816fc9a6338cb151a8cf1e45b926f9bfb70628b24c4bd2523cc94d4",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp",
+      "bytes": 3918,
+      "sha256": "91b490aef86574901137f0a252272e1f1add99c1ad709e0696ed68929b88d261",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher.webp",
+      "bytes": 2884,
+      "sha256": "58ae87fa0c5b5d1562d27fd648d2c061553fe20e3ed570bde588162d01ea7a27",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp",
+      "bytes": 5914,
+      "sha256": "3009fad079f5772f30ecd767f98924367fbe0f81c30048d672d4fda2d5ca7d12",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp",
+      "bytes": 3844,
+      "sha256": "f98fef5bc3bfe5b65692c40ad1cbae2bec4faf9f1b249c397626740db71b62d8",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp",
+      "bytes": 7778,
+      "sha256": "5faf033745c8c882c43bb1b372d4e4a5890caec63d9892a2e756c954108b85dc",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/values/colors.xml",
+      "bytes": 2263,
+      "sha256": "f606e691533a9dff0cced41a82c868c73c91afc7cffc81919da77618a1e6f053",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/values/community_help.xml",
+      "bytes": 8721,
+      "sha256": "d20a9351bfe7fee0808650906793d3c79f27a0080259f2ae366ecd88c0bab1cb",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/values/game_starters.xml",
+      "bytes": 1175,
+      "sha256": "a7f2755993c6002032e84f5c82ce3f7cfd6886d8816ab0a130ff3bdeb9a4ef79",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/values/property_sheet_strings.xml",
+      "bytes": 576,
+      "sha256": "7292964e2a3e05681391e00710ed536ce7f14661a1aecea151cb28a3fb508dbd",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/values/strings.xml",
+      "bytes": 78,
+      "sha256": "d0838ea1b76f5e4732f635261d935a09799c6bb2c5c1ab7b482487360646a71a",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/values/themes.xml",
+      "bytes": 1433,
+      "sha256": "79278e73d187e5bf9c97b6d4d72aabd6971931b79b2b6b5be3bd97f0a27cc971",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/values/toolbar.xml",
+      "bytes": 856,
+      "sha256": "378512334bad73ac8df0b6695763ec95e8808aa02b67d0d292717e1773d59770",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/values/ui_colors.xml",
+      "bytes": 651,
+      "sha256": "a42505e1e27877b4ef9afa523eb38dcae8393d3e7250fb1dbe7aa858a41ff4d7",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/values/ui_strings.xml",
+      "bytes": 792,
+      "sha256": "4672c1fa89314c91bf6a76923217fc868f0592384f7f96b613b294c9d73e7630",
+      "mode": "0o664"
+    },
+    {
+      "path": "app/src/main/res/xml/backup_rules.xml",
+      "bytes": 478,
+      "sha256": "6cf1a27e6807b1d24e41d3fbe7ddc1bfe1f42226027964f6eaf477d71b43b283",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/main/res/xml/data_extraction_rules.xml",
+      "bytes": 551,
+      "sha256": "cb1fc47ab4a984530ed60e0e6ee638929c3038290e7e7e0b4b03a3a30fbe7381",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/sideload/AndroidManifest.xml",
+      "bytes": 664,
+      "sha256": "a3d8c9d67d241cd49716269a41849223f7b15615c8bc40271bd339e151ab2151",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/CameraFollowCommandsTest.kt",
+      "bytes": 2730,
+      "sha256": "b5ddff0e6c1b0e7e9285285524a1f033ad27751a04f04f4949b4899f8aae6d57",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ExampleUnitTest.kt",
+      "bytes": 352,
+      "sha256": "940e292edb6f2c303a4d084aac29b06a1faf9819cab8980ec4a57e097828d5e4",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/OutputSafetyEpochTest.kt",
+      "bytes": 2376,
+      "sha256": "b98866f60f0dcef6e31ab1aa4e179dd3d64a613bc14db29eb9676d362aa4a91c",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/community/GtaPrepImportTest.kt",
+      "bytes": 4420,
+      "sha256": "e63995427ac562bef796a7e610fb12f0393770b28d08594ae20ab70eee75e602",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/io/ControllerProfileBulkDeleteTest.kt",
+      "bytes": 2716,
+      "sha256": "c37fc138c21df1dff54bd62bff13dcedca8402c922ac5670428dfb44d5686934",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/ButtonAimBoundaryProfileTest.kt",
+      "bytes": 7841,
+      "sha256": "e691a665ec60d579c6e9e43365f268762b603251405e61b78c3450fb7c38d5f9",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/ButtonAimGameMouseTest.kt",
+      "bytes": 8400,
+      "sha256": "8b87150a02e465f8395123e59dbaf2912c2b3c9e04593a095f1ff871741cbbe3",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/CameraFollowControlProfileTest.kt",
+      "bytes": 4001,
+      "sha256": "effac604b70cbd0d5ca8d3f798536253bc9cc696ca91684a4b583dbc8940eb42",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/ControlOneShotSerializationTest.kt",
+      "bytes": 4360,
+      "sha256": "abbd49eb07b1c51c6f5b9de4d003c44c9bd733cff53d9388bca993997ba62936",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/ControlSettingsProfilesTest.kt",
+      "bytes": 15717,
+      "sha256": "f4710ef93e1ef24b7c0b04519a5596775138fcc4e736c5148a2c5975059119f2",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/ControllerPageSessionTest.kt",
+      "bytes": 3453,
+      "sha256": "5a51a8ec644300819358a1444e4f8a7d60744b0be0dda894059a128abe86408d",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/ControllerProfileTest.kt",
+      "bytes": 14692,
+      "sha256": "b8e59d67c3f6b9012c2a16c3878ce7a6dd2e167ec0cfbab0bae912f1194d1b2c",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/ControllerProfileTransferTest.kt",
+      "bytes": 10594,
+      "sha256": "434be990ce9066802fe3261f750f9acb9a45cd2a83f83a2d69028934485f2b7f",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/DelayPayloadProfileCompatibilityTest.kt",
+      "bytes": 12274,
+      "sha256": "01f0be4dbecb5a082365f3ecf13714292bfaf7f5f659d817b0d8f6d898404ac8",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/ExtendedBoostSettingsTest.kt",
+      "bytes": 3086,
+      "sha256": "8d896a7bcc058774081fdb499fb9bb6e178e9d98248188efef2ccaae0f1333a1",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/FloatingControlsPersistenceTest.kt",
+      "bytes": 15480,
+      "sha256": "15d231c1df29aadfffc9f7d641a1b6f05ded1bb8a5f0e228a03aed613fe0bd52",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/FloatingDirectBoostDelayPersistenceTest.kt",
+      "bytes": 12557,
+      "sha256": "9d2e190fac5ce84163a49abd20ac5949d831baf49785101d6fb3e4e5bd7ac102",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/FloatingOrientationTest.kt",
+      "bytes": 2337,
+      "sha256": "a71fd95f262cb9025e4241e10b69817dcb3b1c079ceb4f9efb02d308f2e4825b",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/FloatingRingOptionsPersistenceTest.kt",
+      "bytes": 16627,
+      "sha256": "c02e7687e6707027e7c78a9e7435fd1eff390b5b4116ea1bb37e4a825da59236",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/FloatingRingPresetTest.kt",
+      "bytes": 12382,
+      "sha256": "d88eff2ecabda0e86a3a672a8a010915d2bf11fa014260928f2c3dda2a5bb30e",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/FloatingRoleBoostPersistenceTest.kt",
+      "bytes": 22709,
+      "sha256": "fe48b49b3103b6909917ea064d6a37394d8c79fc622a4aea6a01a5ee88fc0879",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/OrientationLayoutTest.kt",
+      "bytes": 4446,
+      "sha256": "4328e57abe940b3c25092ded7d095e3cd751ee8d8161a301240d632c4f8296c5",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/OrientationPreferenceStoreTest.kt",
+      "bytes": 1242,
+      "sha256": "007c622e75b5aa871a5fe410fd061ded40abd26cbf5aff049f20be436125fbee",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/PayloadStageProfileCompatibilityTest.kt",
+      "bytes": 10366,
+      "sha256": "002cfe86e0087757b2e2f67e857ca91ef5dfd1294b9cf1ad53585c7b2720eed6",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/ProfileBackupFormatTest.kt",
+      "bytes": 7667,
+      "sha256": "cece69eece221064bf0fe579818521fd754957d25490bc7366bd4ba23533ba15",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/ProfileSwipePersistenceTest.kt",
+      "bytes": 1833,
+      "sha256": "fd65ab4b2cf8293041d79d8393c6a648d2d89217b8eb269db5a1d76a0ac7d362",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/ReleasePayloadProfileCompatibilityTest.kt",
+      "bytes": 12642,
+      "sha256": "683234fecbd0945813f4b52339e6d0cb2d3ca6ec725c66df379a4f249478e03b",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/RepeatPayloadProfileCompatibilityTest.kt",
+      "bytes": 11668,
+      "sha256": "0adc21c905a2fae06b34fb94a44ba1ebfb67a9ce332a3f59d552827db2e10146",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/StickDirectionalProfileTest.kt",
+      "bytes": 6497,
+      "sha256": "ffd8821400644f12e57115b5587d1f1197c32eb8259d92608a7f37afe28ea8f2",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/StickPlusRepeatProfileTest.kt",
+      "bytes": 5750,
+      "sha256": "700e855daed26016c7123e78be5e558f00d7f263bbfd8c651adefd42fc033cc9",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/TouchAimCalibrationProfileTest.kt",
+      "bytes": 9503,
+      "sha256": "24a3d7ebfabe9eb4f1a3f6193ca85253faa35ec8ea3857e53197bb96c3c7eec1",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/model/TouchAimGameMouseTest.kt",
+      "bytes": 4702,
+      "sha256": "157ef23d51ffed100a9a7aa90e38cf2c40ac937dd215684cc85ebf0473827f8e",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/MouseDeltaCommandTest.kt",
+      "bytes": 1631,
+      "sha256": "fd6b4139b4e20c11ab4c8c8e4fe2c009a1719f3b7c2a11da6fe8ace9457af8e6",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/PhoneOutputCoordinatorTest.kt",
+      "bytes": 14427,
+      "sha256": "0d73d4086128bc5efe2f50849976b82446e00bd835ab718189d5d9d91342b092",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/PhoneReceiverLeaseTest.kt",
+      "bytes": 1995,
+      "sha256": "9ba9377340c4c5f8255a0c7291e31704f6d3ca33faa428f1c5419e4eb8504800",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/ReceiverSocketCleanupTest.kt",
+      "bytes": 1254,
+      "sha256": "3507c209be6fb7122a99d3d82fd486bc2b4e7aa4780e44193942c015c731064b",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/UdpHeartbeatTest.kt",
+      "bytes": 2705,
+      "sha256": "2c0cfd26d3b081da17ad47ad03da21597f7169349a3988ebc8bfa046fb768e86",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/scx2/BridgeConnectionIntentTest.kt",
+      "bytes": 3719,
+      "sha256": "c4938bfabe41fb4ca61a8662c504520764e169245a1da62ebdea1eec0bc8543b",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/scx2/CameraFollowPracticeMachineTest.kt",
+      "bytes": 11414,
+      "sha256": "3b005baa0fa390f809c419069fe43620fd420d01b32e48981953cc5be852fad2",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/scx2/CronusZenTriggersTest.kt",
+      "bytes": 7316,
+      "sha256": "2425af2397150f2befb7341e313b6ab08d939d62a61a800fe97bc2db82473d3f",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/scx2/PracticeCameraProjectionTest.kt",
+      "bytes": 5163,
+      "sha256": "ae91e2b3782935ae2bc7a436577f9e9e6bd5517ee9eec1acd38b0f1a9107a493",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/scx2/Scx2CanonicalOutputTest.kt",
+      "bytes": 7500,
+      "sha256": "52a996489483cb6cb0bf3bd52ccd4d0a37f4e9d9a0141a7f5e30d8a89bb17667",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/scx2/Scx2ClientMachineTest.kt",
+      "bytes": 10502,
+      "sha256": "5022d42c67e6d929d9a6e40a6d153cad35a1dd8d72786d1744f921f598a76620",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/scx2/Scx2ProtocolTest.kt",
+      "bytes": 4928,
+      "sha256": "ba4bc3180019bcddfd704395a1a5f7dee25a15e35c4b534a2ff0885b57d14408",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/scx2/Scx2UdpSessionTest.kt",
+      "bytes": 15346,
+      "sha256": "f8b720e1c278d4a88cfb73c05582ffe983a51e0ea3d44c461764e1b6e9471bce",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/net/scx2/UsbButtonTriggersTest.kt",
+      "bytes": 6689,
+      "sha256": "d29d0a4b352786cbca90c733a820239de241b7d69926b53885baa841dfb474f4",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/ButtonAimDpadSessionTest.kt",
+      "bytes": 5488,
+      "sha256": "64eac1bc9cd732d893c409afaf631de713e696b782200a60141f2acac4881448",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/ButtonAimGameMouseConfigTest.kt",
+      "bytes": 3177,
+      "sha256": "b4bc60332884101671600e7bc82e78ece270d582c74c048323fa3dbb5a4f878a",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/ButtonAimPayloadExecutorTest.kt",
+      "bytes": 13737,
+      "sha256": "160730526f587bdf6545319cde269f35e7da9b473480fb1e56a9b04f020d3219",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/ButtonAimReleaseBoundaryTest.kt",
+      "bytes": 4877,
+      "sha256": "3cdf3697de66e4f3f4801c3d234332e2857e705ea76d65788fad9e4fc37e63a1",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/ButtonAimStickOwnershipTest.kt",
+      "bytes": 3669,
+      "sha256": "04f231f4147d197d88cded1b333afd47e90dd51e85b3dc75057f3b1a57ad164c",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/ButtonAutoTapControllerTest.kt",
+      "bytes": 4242,
+      "sha256": "7cb3c013950934ac08a74e33029f562444af8ac9157969a366c0dce495b2a4b2",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/ButtonDirectionalSelectionTest.kt",
+      "bytes": 1497,
+      "sha256": "0328c6186fcbe5b07031ec7494f1841cddad1d44d501e28af13868f81eb37f20",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/ButtonMacroControllerTest.kt",
+      "bytes": 8015,
+      "sha256": "9b0dae7e1612cc87eda1db6b8af96d2e0921293f834675046354584a74185d27",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/CameraFollowAimConfigTest.kt",
+      "bytes": 2467,
+      "sha256": "7d69df0ed3e63bd4f6c8626cd28bbd4731216bfa97f31402dfbb7a22d9ad4871",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/ControlHitRegionTest.kt",
+      "bytes": 1739,
+      "sha256": "68be9f226902a05b64bf43ffbc906a4ff9dd737c3ec8f242447f4dc60e20642e",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/ControlTuningInputsTest.kt",
+      "bytes": 1527,
+      "sha256": "932e29d18aad859d3d4b320e5a92a798f75e85bb97b04da17b91164fc06f3883",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/DirectionalCommandStateControllerTest.kt",
+      "bytes": 3833,
+      "sha256": "404c5849bc3f85f3362e8214a09adebaa7c74c61157f1bfb70e4e2a590c0ca48",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/DirectionalStickResetTest.kt",
+      "bytes": 4172,
+      "sha256": "283bb45e53e3734c087a28df10c4a506d108a39cac68abbb8d7c27e3fe015710",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/FloatingBoostBandGeometryTest.kt",
+      "bytes": 6386,
+      "sha256": "6c73448c423ac9a9ca755fe1d5fef921e42f822068a73d2ef1470a74c34f62cb",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/FloatingPlacementTest.kt",
+      "bytes": 1305,
+      "sha256": "4dd3bdc68ea59fafed4a1e62f17969789b6b6836cf2d469d3be2e4413e1f0e6f",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/FloatingRingGeometryTest.kt",
+      "bytes": 3067,
+      "sha256": "af9b784fa83c80153a0a7c4241762d8ee27e065b638e0cfe4b39d545257f7b76",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/FloatingRingPayloadControllerTest.kt",
+      "bytes": 11694,
+      "sha256": "f448101743815c0c2eb3132fea03d88c387d3c78f9892ca18660ed0766986e17",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/FloatingRingStateMachineTest.kt",
+      "bytes": 82646,
+      "sha256": "fcbda5314f9c193f0bfede5fc07c71cfe9812ef71049b6a9d06bf17b508d2823",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/FloatingSelectionSessionTest.kt",
+      "bytes": 2747,
+      "sha256": "8d17b4f5c53bd621d2d5a7e447021743b325650bce858e109bc714a07cb9648f",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/HelpOnboardingPolicyTest.kt",
+      "bytes": 1188,
+      "sha256": "52c6797a88d65eaf89e8043767427e6b9239accc541659640de4864e3e43e1bc",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/LegacyScopedPayloadTransportTest.kt",
+      "bytes": 3828,
+      "sha256": "d2f9346e64d1863c7eca7ce75298683c07e3407146f537d81700230f5f3cacb2",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/OneShotAlternateStateMachineTest.kt",
+      "bytes": 4944,
+      "sha256": "e20059b656b38477da2332c0558067a1b16dacbc54f7000cea3e18dad315fcc7",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/OrdinaryPayloadSequenceTest.kt",
+      "bytes": 6302,
+      "sha256": "12d05198076a46ea7099c49dafb82ed0822199d634914e52828833c1bf1c9b13",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/OrdinaryTriggerControllerTest.kt",
+      "bytes": 6550,
+      "sha256": "cebf58d871cdb238e27b0af5743e0e085ec35e1558f0545879b56cbbc88b2e0d",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/PayloadDelayTest.kt",
+      "bytes": 15468,
+      "sha256": "d7b084ad3f6241bcd18b2d13651a035fa54fbe146ba80cf109f299d0025c03d6",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/PayloadModifiersTest.kt",
+      "bytes": 15428,
+      "sha256": "692f435d065bad658f9790963e2bdfae11429b24be3580a1997551908f98e5e4",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/PayloadRepeatTest.kt",
+      "bytes": 14327,
+      "sha256": "2f44fcd404106b84d6855fcaf428395e334645c50caf321aba10ea772179201d",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/PayloadUpTest.kt",
+      "bytes": 20973,
+      "sha256": "26a0085af32e5acd148056300ecb2262975db58e5a5f9e69f949b7e862795ad9",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/PendingFloatingGestureTest.kt",
+      "bytes": 8591,
+      "sha256": "f7e6da98c7c8b49fd1ad6572a8bbf2cc47802b1ee97f077feb3e63f59d570e52",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/ProfileSwipePolicyTest.kt",
+      "bytes": 5177,
+      "sha256": "81c91faedbb911397a33c697b6d528c03089d083dcd2fe218ca71e1e513ea054",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/RepeatDirectionalPayloadTest.kt",
+      "bytes": 5180,
+      "sha256": "86ce845ccc33846083e42702d4e2a60bfc698c024bebacf441d70bedc3ec2df0",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/SafeControlAreaGeometryTest.kt",
+      "bytes": 4411,
+      "sha256": "fd16dcfafd2990f625520a7d17ee0a4f64a52f7affb646d2575a91915f73c5a8",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/StickPlusRepeatTest.kt",
+      "bytes": 10543,
+      "sha256": "d4e6b1d502778cbd09cd076cc31685f236b36f211f2348af75b67987f5767918",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/StickResponseCurveTest.kt",
+      "bytes": 1734,
+      "sha256": "a203289112dfdcea64e7c4daee6044a732ad4944100576150ef014fe8d6d1262",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/TouchAimCalibrationAnalyzerTest.kt",
+      "bytes": 9633,
+      "sha256": "a05946c72f94d7fd62cdca9580e5aba6275cc2893c4d55ac5f6b1ea071252f14",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/TouchAimLegacyLevelsTest.kt",
+      "bytes": 1531,
+      "sha256": "14e698e5d8349881a135edcc08b4792641aae0445f152af8d26f22d159ecf237",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/TouchAimOriginConfigTest.kt",
+      "bytes": 2972,
+      "sha256": "eb6879d48c94ff697731619a60f57063156a1da41666f4650e5687e35e72041f",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/TouchAimStageConfirmationTest.kt",
+      "bytes": 3931,
+      "sha256": "4853ab987b434666aa13740a420585712ec41e81bc27edf3a6b05419d6bd311a",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/TouchAimStagePayloadControllerTest.kt",
+      "bytes": 20500,
+      "sha256": "514c4e3d2e493ea173f79e36e85143b6e9461564ca589cd9661ae19a962f6d09",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/java/com/example/simplecontroller/ui/TwoStateTouchAimStateMachineTest.kt",
+      "bytes": 6069,
+      "sha256": "0e223ad4f387e56229e1bfe343d241d4b8de6f41d240cfb44b871aa7684fefb9",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/resources/golden/debug-profile-transfer-v1.json",
+      "bytes": 1038,
+      "sha256": "531b46033c02f97106e7f0b4457c1ac135743d60ed4e5b0eff67bd07cc89d1e8",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/resources/scx2/scx2-pressure-wire.json",
+      "bytes": 5382,
+      "sha256": "4b99f2b96219357f69d186da429f28316f7c0552102be1ae7f2773c5cac5a3bc",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/resources/scx2/scx2-usb-pressure-wire.json",
+      "bytes": 6099,
+      "sha256": "af3e7f8d6eddcacf7ee63f88341623448d364bc161192d0f0274b87c16e61bbf",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/resources/scx2/scx2-usb-trigger-wire.json",
+      "bytes": 6103,
+      "sha256": "d1576187f670baa1f7c8d9e57b9d85dada882b9accc41931802e5ff476e20859",
+      "mode": "0o644"
+    },
+    {
+      "path": "app/src/test/resources/scx2/scx2-wire.json",
+      "bytes": 4048,
+      "sha256": "6e52c2a1f0e258cacd72d74b78ea279b092c3d9bf3984246ec408e9daf29e5ed",
+      "mode": "0o644"
+    },
+    {
+      "path": "build.gradle.kts",
+      "bytes": 269,
+      "sha256": "b001f81a8a22975c7a2b3af65cfdd80a7ba5b8cc524be259f9537f325fff8829",
+      "mode": "0o644"
+    },
+    {
+      "path": "camera_follow.py",
+      "bytes": 8794,
+      "sha256": "88e472da732d8e5fc5649fb5ecb262c86ccef950621b451d93dad64c9e059207",
+      "mode": "0o644"
+    },
+    {
+      "path": "configure_mac_receiver.py",
+      "bytes": 4836,
+      "sha256": "dda83dcd69c6a4ab3c3557e902a30b110f58fcffc4f9f490164ec06b81aa48ad",
+      "mode": "0o644"
+    },
+    {
+      "path": "docs/THIRD_PARTY_NOTICES.txt",
+      "bytes": 17202,
+      "sha256": "ec158ba7d3d2078e304d8811b42fe6b2ca3e9f914cbf006f1e56c80149d16ee6",
+      "mode": "0o644"
+    },
+    {
+      "path": "face_input_server.py",
+      "bytes": 42729,
+      "sha256": "bb3145f497c62ea4ef7721e223203ae08053b4b20afbb373d69263d2a8914fd2",
+      "mode": "0o644"
+    },
+    {
+      "path": "gradle/libs.versions.toml",
+      "bytes": 1776,
+      "sha256": "772d9a7b4c1a0dd6c7b59c9e5aaa772f8cb66bbd7d9897789059774c8f77b8bf",
+      "mode": "0o644"
+    },
+    {
+      "path": "gradle/wrapper/gradle-wrapper.jar",
+      "bytes": 59203,
+      "sha256": "e996d452d2645e70c01c11143ca2d3742734a28da2bf61f25c82bdc288c9e637",
+      "mode": "0o644"
+    },
+    {
+      "path": "gradle/wrapper/gradle-wrapper.properties",
+      "bytes": 239,
+      "sha256": "853f28a21dc7a97dd8b535ed21b7c301add39b3fa415403287e8927cf2189d6a",
+      "mode": "0o644"
+    },
+    {
+      "path": "gradle.properties",
+      "bytes": 1346,
+      "sha256": "51e4b5a131eb01b1cdeb2f6f26aaba69d367a4a9d4ccd10c6d6f6d12fd545b66",
+      "mode": "0o644"
+    },
+    {
+      "path": "gradlew",
+      "bytes": 5766,
+      "sha256": "63135287117a1e6d12c84580f1f49c61d1ba02218ecd28660605e97f976e7d65",
+      "mode": "0o755"
+    },
+    {
+      "path": "gradlew.bat",
+      "bytes": 2763,
+      "sha256": "af835f98787e9269af5a046edcb821a592fed372139df7b947b471a63cfc236b",
+      "mode": "0o644"
+    },
+    {
+      "path": "ios_pc_adapter.py",
+      "bytes": 4439,
+      "sha256": "114a76d971b976fa40609d29c2c211f61efbf849653d97f37f645a66435def39",
+      "mode": "0o644"
+    },
+    {
+      "path": "ios_pc_protocol.py",
+      "bytes": 7982,
+      "sha256": "39d107f9601e27e2d59c1d36b5ca440f21a0b1ba0d6946dec1a793c7dbe56845",
+      "mode": "0o644"
+    },
+    {
+      "path": "mac_output.py",
+      "bytes": 18982,
+      "sha256": "223704e24da2225719411dc3b0f26252319892c25ff1a124f240deae5c28a40d",
+      "mode": "0o644"
+    },
+    {
+      "path": "mac_recording_peer.py",
+      "bytes": 2949,
+      "sha256": "5ba4a6e5206729334b66e5f5ee9d06398e87c0f196af6c7571b1dec77a520051",
+      "mode": "0o644"
+    },
+    {
+      "path": "phone_output_protocol.py",
+      "bytes": 17479,
+      "sha256": "86f82291edfff0a6f0b7b3d8b1e320c1cc9efa3d71a233f582941d7e845909c2",
+      "mode": "0o644"
+    },
+    {
+      "path": "profiles/GTA-6-Prep-Android.txt",
+      "bytes": 2793,
+      "sha256": "729fdc1d1873e48f881c7a91468d58a81fb39d94836ac23e3550da0506aea31d",
+      "mode": "0o644"
+    },
+    {
+      "path": "profiles/GTA-6-Prep-conversion.json",
+      "bytes": 2996,
+      "sha256": "131618b517c3b1a74f1d90b66466d52491825610a69786d3ee4eeda128a8ce27",
+      "mode": "0o644"
+    },
+    {
+      "path": "profiles/GTA-6-Prep.native20-source.json",
+      "bytes": 223418,
+      "sha256": "60271f4ac6a2b622137f2a719514f3d682c7cdc273a284d1ffda4278ab34e1e9",
+      "mode": "0o644"
+    },
+    {
+      "path": "profiles/GTA-6-Prep.simplecontroller-profile.json",
+      "bytes": 67534,
+      "sha256": "3a79654e41a7cdbbf21797fa1cdaaee4301bbdf0acb552d54f101df54e38a439",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/.gitignore",
+      "bytes": 103,
+      "sha256": "80a47f1d5b1e790c7e8f3800e9d9faaa1abdc619bff0f1813ccd1758132b71b5",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/Configure-Mac-Receiver.command",
+      "bytes": 278,
+      "sha256": "d0790b37c040f9ef9fcbfd6b62054f7639e683fc75bbd54d59820b8d62e6470b",
+      "mode": "0o755"
+    },
+    {
+      "path": "receiver/Mac-Mapping.json",
+      "bytes": 570,
+      "sha256": "e09397317f0ec2b42726534162cb039b010d1f132f33defd3c53dfd8933a8656",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/README.md",
+      "bytes": 12875,
+      "sha256": "ec46921d4549040e620a6b099bc257cc7ca9ae9d444f6101fb6a373555426832",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/Setup-Windows-Receiver.bat",
+      "bytes": 233,
+      "sha256": "c2ab1ebb36310fa7e8a98177075e52f9ab7f9bb26c1aa4de94256832b4800f7b",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/Start-Mac-Receiver.command",
+      "bytes": 359,
+      "sha256": "af140761a6c907c10a7b2ccd103f5e0ad8c3ae8551ca055977557380e6dbf71f",
+      "mode": "0o755"
+    },
+    {
+      "path": "receiver/Start-Windows-Receiver.bat",
+      "bytes": 225,
+      "sha256": "056bf540aeef4ca399ff5fff4e8ef69be971c0e420fbe51091964fcf8f69fb62",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/THIRD-PARTY-NOTICES.md",
+      "bytes": 2355,
+      "sha256": "19cf89bf353a3dad181388bfc6a329d93da88e585dfc9cd7f74deff331ca88bc",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/VERIFICATION.md",
+      "bytes": 6932,
+      "sha256": "d225a3b86c91035a539376bf6601f7d2814d18a43a98aabd3542ad1c4eb59518",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/camera_follow.py",
+      "bytes": 8794,
+      "sha256": "88e472da732d8e5fc5649fb5ecb262c86ccef950621b451d93dad64c9e059207",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/configure_mac_receiver.py",
+      "bytes": 4836,
+      "sha256": "dda83dcd69c6a4ab3c3557e902a30b110f58fcffc4f9f490164ec06b81aa48ad",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/face_input_server.py",
+      "bytes": 42729,
+      "sha256": "bb3145f497c62ea4ef7721e223203ae08053b4b20afbb373d69263d2a8914fd2",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/ios_pc_adapter.py",
+      "bytes": 4439,
+      "sha256": "114a76d971b976fa40609d29c2c211f61efbf849653d97f37f645a66435def39",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/ios_pc_protocol.py",
+      "bytes": 7982,
+      "sha256": "39d107f9601e27e2d59c1d36b5ca440f21a0b1ba0d6946dec1a793c7dbe56845",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/mac_output.py",
+      "bytes": 18982,
+      "sha256": "223704e24da2225719411dc3b0f26252319892c25ff1a124f240deae5c28a40d",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/mac_recording_peer.py",
+      "bytes": 2949,
+      "sha256": "5ba4a6e5206729334b66e5f5ee9d06398e87c0f196af6c7571b1dec77a520051",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/phone_output_protocol.py",
+      "bytes": 17479,
+      "sha256": "86f82291edfff0a6f0b7b3d8b1e320c1cc9efa3d71a233f582941d7e845909c2",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/relative_mouse.py",
+      "bytes": 3259,
+      "sha256": "fb72916e56614351197017f829f10f5a3f619b91c06cc0d806b695cdac253438",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/requirements-windows.txt",
+      "bytes": 150,
+      "sha256": "36102517896f0e3de27438986ac273780b7d7ec4c88f955cf2ddc87c6c02a258",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/run_tests.py",
+      "bytes": 849,
+      "sha256": "f8acf88cdc7e2c8bb2ca5057239c879c2e543fc48b9b1a1d3058521de73e654d",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/setup_receiver.py",
+      "bytes": 2334,
+      "sha256": "324f2fff7c3ec613de133ec3221704c8595b37004493707bc061a5b215640843",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/simple_controller_receiver.py",
+      "bytes": 81654,
+      "sha256": "890754d2b8fc02fa1a3a38d9ab02857e116bf12043ec74a8ed44f18ff12f26e0",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/start_mac_receiver.py",
+      "bytes": 4206,
+      "sha256": "27e8b927ca0984abe30fbc2e6a887856a3445a11f9648c485fcbad368c235f36",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/start_receiver.py",
+      "bytes": 1348,
+      "sha256": "22a8f4ac2a4a1c9923ef025e147531a77ad6dc9be265e67eaa04e1dd2ea7c7f5",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_camera_follow.py",
+      "bytes": 4707,
+      "sha256": "344116e01440b67f2ec605742db98d3993f4912a1f479a37663fb7a972a338a3",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_camera_follow_controls.py",
+      "bytes": 14959,
+      "sha256": "b809c1c8fee45086a2171446302525328d26c20ed12b6f43a131d733ee6253f7",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_desktop_face_input.py",
+      "bytes": 23774,
+      "sha256": "39724035474f8a7a278fcddaf4a7ed04f36c27a4c8893ce95458f6154e9724e4",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_dual_face_input.py",
+      "bytes": 16312,
+      "sha256": "0d409e12b8aaa17b7a5e5b6e8d4f8204d51c8ec0524ce860abcd2f7f99558675",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_face_input_server.py",
+      "bytes": 16052,
+      "sha256": "c2011d0a783c2c414bb7a3bfbb931fa72240aa89ab832547af1faa406e99a0fd",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_game_mouse_receiver.py",
+      "bytes": 11044,
+      "sha256": "dd1300326aa74418710c876e411413ba0d174b731302f3a5d39b0f349c78f94c",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_ios_pc_protocol.py",
+      "bytes": 8140,
+      "sha256": "c053c7543a6d60e570384debea41b98453111ff2e532e592615cb5b94802b119",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_ios_pc_receiver.py",
+      "bytes": 4150,
+      "sha256": "9d9644fc09fa194999375f0a5c1e555617e289ce5979a726cf4a7df9fb2bb67a",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_mac_output.py",
+      "bytes": 19981,
+      "sha256": "1f56b34e4c42540fdf6996f16ff9f271532bafacd27bd53548758d99851c862e",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_movement_face_input.py",
+      "bytes": 19911,
+      "sha256": "7d9b7e4116af2219202d8a869cd1a04822c8abc38a3eddc3b2fba7d1e771a06e",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_movement_receiver.py",
+      "bytes": 12117,
+      "sha256": "2197fb49e18a54930a8e6ab32ab34b301b95ae20acfe6cbd5c7bf5204bf70ec4",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_pc_udp_peer.py",
+      "bytes": 1634,
+      "sha256": "7338ae103938bc3fc4eb7ea99286b1cf9d2a58cb5e0d895fe555ed1a03c4e390",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_phone_lease.py",
+      "bytes": 3284,
+      "sha256": "687eafbd8e0b0d7ee69854e1aeed31bf05312360b6d1c1e62db5fef71614331e",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_phone_output_protocol.py",
+      "bytes": 6778,
+      "sha256": "ef532b3b602366e7a17247f87996553d680302b8493d97efceda7bdf673acf78",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_phone_output_receiver.py",
+      "bytes": 10444,
+      "sha256": "3638685613d1b2b0e30ecaae264ef644a9c91c0413ac102e816ee6caeb4a56b2",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_receiver_release_all.py",
+      "bytes": 11779,
+      "sha256": "e86644f92572f70c89b18a2cc09f503899c1fb1837328a3e038eb40aaad23487",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_voice_protocol.py",
+      "bytes": 22191,
+      "sha256": "a587e102ecc3281c5db56257fc2fbd4a9405de7f7bd758b5a7a03f177bcf71a4",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_voice_receiver.py",
+      "bytes": 11699,
+      "sha256": "bb110fd4e36014d3380b85ffc1e9b7eb5a64205aea105e62100da0233128f56a",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/test_windows_setup.py",
+      "bytes": 3953,
+      "sha256": "80bc8d11b5f8770736a9b114e455823babd279338a613d110b74f1b0b2cebe05",
+      "mode": "0o644"
+    },
+    {
+      "path": "receiver/voice_input_server.py",
+      "bytes": 19213,
+      "sha256": "8385f94383b698ea8702943ce74303cca740686a0de48e19b3e4a75313723b0b",
+      "mode": "0o644"
+    },
+    {
+      "path": "relative_mouse.py",
+      "bytes": 3259,
+      "sha256": "fb72916e56614351197017f829f10f5a3f619b91c06cc0d806b695cdac253438",
+      "mode": "0o644"
+    },
+    {
+      "path": "requirements-windows.txt",
+      "bytes": 150,
+      "sha256": "36102517896f0e3de27438986ac273780b7d7ec4c88f955cf2ddc87c6c02a258",
+      "mode": "0o644"
+    },
+    {
+      "path": "run_tests.py",
+      "bytes": 849,
+      "sha256": "f8acf88cdc7e2c8bb2ca5057239c879c2e543fc48b9b1a1d3058521de73e654d",
+      "mode": "0o644"
+    },
+    {
+      "path": "settings.gradle.kts",
+      "bytes": 541,
+      "sha256": "eae1f6c797a65f91d84c4623eff450be44035300bb1aa2afa76fd4099a98c0df",
+      "mode": "0o644"
+    },
+    {
+      "path": "setup_receiver.py",
+      "bytes": 2334,
+      "sha256": "324f2fff7c3ec613de133ec3221704c8595b37004493707bc061a5b215640843",
+      "mode": "0o644"
+    },
+    {
+      "path": "simple_controller_receiver.py",
+      "bytes": 81654,
+      "sha256": "890754d2b8fc02fa1a3a38d9ab02857e116bf12043ec74a8ed44f18ff12f26e0",
+      "mode": "0o644"
+    },
+    {
+      "path": "start_mac_receiver.py",
+      "bytes": 4206,
+      "sha256": "27e8b927ca0984abe30fbc2e6a887856a3445a11f9648c485fcbad368c235f36",
+      "mode": "0o644"
+    },
+    {
+      "path": "start_receiver.py",
+      "bytes": 1348,
+      "sha256": "22a8f4ac2a4a1c9923ef025e147531a77ad6dc9be265e67eaa04e1dd2ea7c7f5",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_camera_follow.py",
+      "bytes": 4707,
+      "sha256": "344116e01440b67f2ec605742db98d3993f4912a1f479a37663fb7a972a338a3",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_camera_follow_controls.py",
+      "bytes": 14959,
+      "sha256": "b809c1c8fee45086a2171446302525328d26c20ed12b6f43a131d733ee6253f7",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_desktop_face_input.py",
+      "bytes": 23774,
+      "sha256": "39724035474f8a7a278fcddaf4a7ed04f36c27a4c8893ce95458f6154e9724e4",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_dual_face_input.py",
+      "bytes": 16312,
+      "sha256": "0d409e12b8aaa17b7a5e5b6e8d4f8204d51c8ec0524ce860abcd2f7f99558675",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_face_input_server.py",
+      "bytes": 16052,
+      "sha256": "c2011d0a783c2c414bb7a3bfbb931fa72240aa89ab832547af1faa406e99a0fd",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_game_mouse_receiver.py",
+      "bytes": 11044,
+      "sha256": "dd1300326aa74418710c876e411413ba0d174b731302f3a5d39b0f349c78f94c",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_ios_pc_protocol.py",
+      "bytes": 8140,
+      "sha256": "c053c7543a6d60e570384debea41b98453111ff2e532e592615cb5b94802b119",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_ios_pc_receiver.py",
+      "bytes": 4150,
+      "sha256": "9d9644fc09fa194999375f0a5c1e555617e289ce5979a726cf4a7df9fb2bb67a",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_mac_output.py",
+      "bytes": 19981,
+      "sha256": "1f56b34e4c42540fdf6996f16ff9f271532bafacd27bd53548758d99851c862e",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_movement_face_input.py",
+      "bytes": 19911,
+      "sha256": "7d9b7e4116af2219202d8a869cd1a04822c8abc38a3eddc3b2fba7d1e771a06e",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_movement_receiver.py",
+      "bytes": 12117,
+      "sha256": "2197fb49e18a54930a8e6ab32ab34b301b95ae20acfe6cbd5c7bf5204bf70ec4",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_pc_udp_peer.py",
+      "bytes": 1634,
+      "sha256": "7338ae103938bc3fc4eb7ea99286b1cf9d2a58cb5e0d895fe555ed1a03c4e390",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_phone_lease.py",
+      "bytes": 3284,
+      "sha256": "687eafbd8e0b0d7ee69854e1aeed31bf05312360b6d1c1e62db5fef71614331e",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_phone_output_protocol.py",
+      "bytes": 6778,
+      "sha256": "ef532b3b602366e7a17247f87996553d680302b8493d97efceda7bdf673acf78",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_phone_output_receiver.py",
+      "bytes": 10444,
+      "sha256": "3638685613d1b2b0e30ecaae264ef644a9c91c0413ac102e816ee6caeb4a56b2",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_receiver_release_all.py",
+      "bytes": 11779,
+      "sha256": "e86644f92572f70c89b18a2cc09f503899c1fb1837328a3e038eb40aaad23487",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_voice_protocol.py",
+      "bytes": 22191,
+      "sha256": "a587e102ecc3281c5db56257fc2fbd4a9405de7f7bd758b5a7a03f177bcf71a4",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_voice_receiver.py",
+      "bytes": 11699,
+      "sha256": "bb110fd4e36014d3380b85ffc1e9b7eb5a64205aea105e62100da0233128f56a",
+      "mode": "0o644"
+    },
+    {
+      "path": "test_windows_setup.py",
+      "bytes": 3953,
+      "sha256": "80bc8d11b5f8770736a9b114e455823babd279338a613d110b74f1b0b2cebe05",
+      "mode": "0o644"
+    },
+    {
+      "path": "tools/check_gta_prep_conversion.py",
+      "bytes": 8382,
+      "sha256": "d89832273b97d938213e4c31d9be5e1828f36c8ce96adef529e5a2ce37c2557e",
+      "mode": "0o644"
+    },
+    {
+      "path": "tools/convert_gta_prep.py",
+      "bytes": 9949,
+      "sha256": "bcb87a6bc96a0d3bb40550e6743852474dc69322ca65408059bd83aecb3063d6",
+      "mode": "0o644"
+    },
+    {
+      "path": "videos/Beginner-Guide.html",
+      "bytes": 32600,
+      "sha256": "3e5e1e3d5f4c73d407d6822f8d514c3e77049a327be26e7426d10a5fdd791af0",
+      "mode": "0o644"
+    },
+    {
+      "path": "videos/Captions.srt",
+      "bytes": 3494,
+      "sha256": "030a8bfc4da914e5690567d5a4774d3a3604b76b100de734cd3647971629d898",
+      "mode": "0o644"
+    },
+    {
+      "path": "videos/FAQ.txt",
+      "bytes": 20288,
+      "sha256": "561225768df064377db7c49679a9bbe5a16d75b9337725a94b4d610b06c00afd",
+      "mode": "0o644"
+    },
+    {
+      "path": "videos/README.md",
+      "bytes": 688,
+      "sha256": "4e87ef49577c8cbdf1fe0a793cb296de75758ea046df0aa2b1055131167aa0fa",
+      "mode": "0o644"
+    },
+    {
+      "path": "videos/Tutorial-poster.png",
+      "bytes": 356262,
+      "sha256": "a5d51746372dd3771bf3a220e4787b778f9d9dd3c301454cd0ccc4d25b7e7ac5",
+      "mode": "0o644"
+    },
+    {
+      "path": "voice_input_server.py",
+      "bytes": 19213,
+      "sha256": "8385f94383b698ea8702943ce74303cca740686a0de48e19b3e4a75313723b0b",
+      "mode": "0o644"
+    }
+  ],
+  "source_zip_sha256": "5bf834fc6fb0ff7dcf0873f7ebbd778d3bd87bbf300a82220087be91abaa4b17",
+  "source_bundle_sha256": "99bf27c6e11f5b1db16cb81408a451aa78b1e1e537b6b0ad3a7faf1d89ca56a2",
+  "note": "Clean source snapshot; generated archives/APKs and MP4 videos are omitted. Obtain downloads separately from Releases. Mac output maps controls to keys/mouse, not a native analog gamepad."
+}

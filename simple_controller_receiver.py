@@ -12,22 +12,27 @@ import socket
 import threading
 import time
 import re
-import keyboard
-import mouse
-import vgamepad
+import os
+MAC_BACKEND = os.environ.get("SIMPLE_CONTROLLER_BACKEND") == "mac"
+if MAC_BACKEND:
+    from mac_output import keyboard, mouse, vgamepad, pyautogui, send_relative_mouse
+else:
+    import keyboard
+    import mouse
+    import vgamepad
+    import pyautogui
+    from relative_mouse import send_relative_mouse
 import math
 import logging
 import random
 import os
 import ipaddress
-import pyautogui
 from datetime import datetime
 from collections import deque
 from camera_follow import CameraFollowSettings, CameraFollowState
 from face_input_server import (FaceInputState, FaceInputServer, MergedGamepad, MergedDesktopInput,
                                synchronized, canonical_phone_key, keyboard_name, FACE_INPUT_TAG)
 from voice_input_server import VoiceInputState, VoiceInputServer
-from relative_mouse import send_relative_mouse
 from ios_pc_adapter import IOSPCAdapter
 from phone_output_protocol import PhoneOutputProtocolState, state_key as phone_state_key, inactive_command
 
@@ -176,7 +181,8 @@ def show_connection_info():
 
     print()
     print("Phone and PC must be on the same Wi-Fi/network.", flush=True)
-    print("If it does not connect, allow this app through Windows Firewall.", flush=True)
+    print("If it does not connect, allow Local Network / incoming connections in macOS."
+          if MAC_BACKEND else "If it does not connect, allow this app through Windows Firewall.", flush=True)
     print("========================================", flush=True)
     print()
 
@@ -226,6 +232,10 @@ def send_tagged_key(target, pressed):
     Construct the Win32 ABI lazily; imports/tests never inject native keys.
     SendInput failure is explicit (including Windows integrity restrictions).
     """
+    if MAC_BACKEND:
+        # The optional desktop sources share the same mapped Mac ownership layer.
+        (keyboard.press if pressed else keyboard.release)(keyboard_name(target))
+        return
     global _tagged_keyboard_api
     import ctypes
     from ctypes import wintypes
@@ -610,6 +620,9 @@ def release_outputs(player_ids, reason="explicit RELEASE_ALL"):
             logger.warning(f"Failed to release mouse button {mouse_button}: {e}")
 
     smoother.end_touch()
+    if MAC_BACKEND:
+        from mac_output import runtime
+        runtime().clear_motion_remainders()
 
     for player_id in selected:
         camera_follow_last_input_at[player_id] = 0.0
@@ -668,7 +681,10 @@ def handle_game_mouse_delta(command):
         if not (math.isfinite(dx) and math.isfinite(dy)):
             raise ValueError("movement must be finite")
         # Match legacy TouchAim scaling and truncation before the native backend.
-        send_relative_mouse(int(dx * DELTA_GAIN), int(dy * DELTA_GAIN))
+        if MAC_BACKEND:
+            send_relative_mouse(dx * DELTA_GAIN, dy * DELTA_GAIN)
+        else:
+            send_relative_mouse(int(dx * DELTA_GAIN), int(dy * DELTA_GAIN))
     except (ValueError, OverflowError) as error:
         logger.warning(f"Bad GAME_DELTA packet: {command} ({error})")
     except OSError as error:
@@ -680,8 +696,8 @@ def handle_touchpad(command):
     if command.startswith("DELTA:"):
         try:
             dx, dy = map(float, command[6:].split(",", 1))
-            mx = int(dx * DELTA_GAIN)
-            my = int(dy * DELTA_GAIN)
+            mx = dx * DELTA_GAIN if MAC_BACKEND else int(dx * DELTA_GAIN)
+            my = dy * DELTA_GAIN if MAC_BACKEND else int(dy * DELTA_GAIN)
             print("HDL", dx, dy, "⇒", mx, my)      # DEBUG
             # comment-out the line you're NOT using:
             # mouse.move(mx, my, absolute=False)   # needs admin
@@ -732,8 +748,9 @@ def handle_mouse_buttons(command):
 def handle_scroll(command):
     # SCROLL:+/-n   → one notch ≈ 120 units on Windows
     try:
-        amount = int(float(command.split(":",1)[1]) * 120)
-        pyautogui.scroll(amount)
+        value = float(command.split(":",1)[1])
+        # Mac Quartz scrolling uses lines; Windows retains its original scale.
+        pyautogui.scroll(value if MAC_BACKEND else int(value * 120))
     except Exception as e:
         logger.error(f"Bad SCROLL packet {command}: {e}")        
 
@@ -901,6 +918,9 @@ def neutralize_legacy_phone_outputs(player_id):
     key_states[player_id].clear()
     mouse_states[player_id].update(left_down=False,is_touchpad_active=False)
     smoother.end_touch()
+    if MAC_BACKEND:
+        from mac_output import runtime
+        runtime().clear_motion_remainders()
     pad.update()
 
 
@@ -1363,7 +1383,15 @@ def process_timed_sequence(commands, player_id='player1', release_generation=Non
 def process_command(data, addr, player_id='player1', phone_guard=None):
     """Process incoming command from the Android app"""
     data = data.strip()
-    handled, pc_response = ios_pc_adapter.protocol.process(data, addr)
+    if MAC_BACKEND:
+        from mac_output import runtime
+        # Commit the complete snapshot together: modifiers precede mapped keys
+        # and mouse clicks, and pointer movement sees the final held buttons.
+        # Keep lock order consistent with Camera Follow and all pad writes.
+        with release_state_lock, runtime().batch():
+            handled, pc_response = ios_pc_adapter.protocol.process(data, addr)
+    else:
+        handled, pc_response = ios_pc_adapter.protocol.process(data, addr)
     if handled:
         return pc_response
     if not data:
